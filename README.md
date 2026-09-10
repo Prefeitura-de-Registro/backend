@@ -39,16 +39,14 @@ DATABASE_URL="postgresql://admin:adminpassword@localhost:5432/lab_praticas?schem
 
 ## Banco de dados
 
-O backend usa a migration centralizada no diretorio `../database`. Antes de iniciar a API, suba o banco, aplique a migration e gere o Prisma Client:
+O schema e as migrations ficam centralizados em `../database/prisma`. Antes de iniciar a API, suba o banco, aplique a migration pelo backend e gere o Prisma Client:
 
 ```bash
 cd ../database
-npm install
-Copy-Item .env.example .env
 docker compose up -d
-npx.cmd prisma migrate deploy
 
 cd ../backend
+npm run prisma:migrate
 npm run prisma:generate
 ```
 
@@ -100,23 +98,23 @@ Partindo da raiz `LP-PREF`, abra um terminal e execute:
 
 ```powershell
 cd database
-npm install
-Copy-Item .env.example .env
 docker compose up -d
 docker compose ps
 ```
 
-O `.env` criado em `database` fornece a `DATABASE_URL` usada pelos comandos do Prisma.
+O Docker não exige um `.env` em `database`; a `DATABASE_URL` usada pelo Prisma fica apenas em `backend/.env`.
 
 O serviço esperado é `praticas-db-local`, baseado em `postgis/postgis:15-3.4`. Essa imagem é necessária pois a migration utiliza a extensão PostGIS e o campo geográfico dos tickets.
 
-### 3. Aplicar a migration e a carga de exemplo
+### 3. Configurar o backend e aplicar a migration
 
-Ainda dentro de `database`, aplique o histórico de migrations:
+Volte ao backend. Ele contém o Prisma CLI e usa o schema compartilhado de `database/prisma`:
 
 ```powershell
-npx.cmd prisma migrate deploy
-npx.cmd prisma migrate status
+cd ../backend
+npm install
+Copy-Item .env.example .env
+npm run prisma:migrate
 ```
 
 Esse passo cria enums, tabelas, relacionamentos, PostGIS e os dados de exemplo. Valide a carga com:
@@ -128,17 +126,7 @@ docker compose exec postgres psql -U admin -d lab_praticas -c "SELECT COUNT(*) A
 
 O total esperado para os dados de exemplo atuais é `5` tickets.
 
-### 4. Instalar e configurar a API
-
-Em um segundo terminal, a partir da raiz do repositório:
-
-```powershell
-cd backend
-npm install
-Copy-Item .env.example .env
-```
-
-O `.env` local deve conter:
+O `.env` local criado no passo anterior deve conter:
 
 ```env
 PORT=3000
@@ -147,7 +135,7 @@ DATABASE_URL="postgresql://admin:adminpassword@localhost:5432/lab_praticas?schem
 
 Não versione esse arquivo. Se precisar publicar o PostgreSQL em uma porta diferente, altere a porta tanto em `database/docker-compose.yml` quanto em `DATABASE_URL`.
 
-### 5. Gerar o Prisma Client e iniciar
+### 4. Gerar o Prisma Client e iniciar
 
 ```powershell
 npm run prisma:generate
@@ -156,7 +144,7 @@ npm run dev
 
 Quando a inicialização for bem-sucedida, a API estará em `http://localhost:3000`.
 
-### 6. Testar a API
+### 5. Testar a API
 
 O health check também consulta o banco, portanto confirma que API e PostgreSQL estão conectados:
 
@@ -209,16 +197,17 @@ cd ../database
 docker compose down
 Remove-Item -LiteralPath .pgdata -Recurse -Force
 docker compose up -d
-npx.cmd prisma migrate deploy
+cd ../backend
+npm run prisma:migrate
 ```
 
 Depois, volte ao backend, gere o client se necessário e execute `npm run dev`.
 
 ## Solução de problemas
 
-### `npx.ps1` bloqueado pelo PowerShell
+### Comandos Prisma no PowerShell
 
-Use `npx.cmd prisma migrate deploy` em vez de `npx prisma migrate deploy`.
+Use os scripts do backend: `npm run prisma:migrate`, `npm run prisma:generate` e `npm run prisma:studio`. Para o typecheck direto, use `npx.cmd tsc --noEmit` caso o PowerShell bloqueie `npx`.
 
 ### Erro no endpoint `/health`
 
@@ -228,7 +217,8 @@ Confirme que o container está ativo e que a migration foi aplicada:
 cd ../database
 docker compose ps
 docker compose logs postgres
-npx.cmd prisma migrate status
+cd ../backend
+npm run prisma:migrate
 ```
 
 Em seguida, confira a `DATABASE_URL` de `backend/.env` e reinicie a API.
