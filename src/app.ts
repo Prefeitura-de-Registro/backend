@@ -1,15 +1,16 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
+import cors from "cors";
+import express from "express";
+import { routes } from "./routes/index.js";
+import { errorMiddleware } from "./shared/middlewares/error.middleware.js";
+import { notFoundMiddleware } from "./shared/middlewares/not-found.middleware.js";
 
-export const app = express();
+const app = express();
 
-app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(routes);
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
-});
+export { app };
 
-export default app;
