@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "prisma:generate": "cd ../database && npx prisma generate",
+    "prisma:generate": "prisma generate --schema=../database/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate deploy --schema=../database/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=../database/prisma/schema.prisma"
   },
