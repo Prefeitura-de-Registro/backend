@@ -6,4 +6,4 @@ import { getManyTicketSchema } from "../schemas/ticket.schema.js";
     DTOs inferem os tipos definidos nos schemas zod
 */
 
-export type GetManyTicketSchema = z.infer<typeof getManyTicketSchema>
+export type GetManyTicketDTO = z.infer<typeof getManyTicketSchema>
