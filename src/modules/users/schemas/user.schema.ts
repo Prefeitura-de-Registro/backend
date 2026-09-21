@@ -22,3 +22,13 @@ export const createUserSchema = z.object({
         .enum(['municipe', 'funcionario'])
         .optional()
 });
+
+export const loginUserSchema = z.object({
+    email: z
+        .string()
+        .email("Informe um email válido"),
+
+    senha: z
+        .string()
+        .min(1, "A senha é obrigatória")
+});
