@@ -22,6 +22,7 @@ class UserService {
         name: data.nome,
         email: data.email,
         passwordHash,
+        tipoUsuario: data.tipoUsuario
       },
       select: {
         id: true,
