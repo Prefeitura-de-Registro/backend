@@ -26,11 +26,33 @@ class UserService {
       },
     });
 
-    if (existente) {
-      throw new AppError("Já existe um cadastro com esse e-mail", 409);
-    }
-
     const passwordHash = await hashPassword(data.senha);
+
+    if (existente) {
+      if (existente.ativo) {
+        throw new AppError("Já existe um cadastro com esse e-mail", 409);
+      }
+
+      // Usuário tinha passado por soft delete: reativa o mesmo registro em
+      // vez de criar um novo, preservando o histórico já vinculado a ele
+      // (tickets, TicketHistorico, UsuarioDepartamento etc.).
+      return prisma.user.update({
+        where: { id: existente.id },
+        data: {
+          name: data.nome,
+          passwordHash,
+          tipoUsuario: data.tipoUsuario ?? "municipe",
+          ativo: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          tipoUsuario: true,
+          createdAt: true,
+        },
+      });
+    }
 
     const usuario = await prisma.user.create({
       data: {
