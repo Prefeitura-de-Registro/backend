@@ -19,7 +19,7 @@ export const createUserSchema = z.object({
         .min(8, "A senha deve ter pelo menos 8 caracteres"),
 
     tipoUsuario: z
-        .enum(['municipe', 'funcionario'])
+        .enum(['municipe', 'funcionario', 'gestor'])
         .optional()
 });
 

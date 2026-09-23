@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { asyncHandler } from "../../shared/utils/async-handler.js";
 import { validateBody } from "../../shared/middlewares/validate.middleware.js";
-import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
+import { authMiddleware } from "../../shared/middlewares/authenticate.middleware.js";
+import { authorizeMiddleware } from "../../shared/middlewares/authorize.middleware.js";
 import { createUserSchema, loginUserSchema } from "./schemas/user.schema.js";
 import { UserController } from "./user.controller.js";
 
