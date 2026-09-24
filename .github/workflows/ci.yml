@@ -9,13 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: Prefeitura-de-Registro/database
+        # O backend usa o enum `gestor`, introduzido neste schema compartilhado.
+        ref: develop
+        path: database
     - uses: actions/setup-node@v4
       with:
         node-version: '22'
     - run: npm ci
-    - run: npm run prisma:generate
+    - run: cp database/prisma/schema.prisma prisma/schema.ci.prisma
+    - run: npx prisma generate --schema=prisma/schema.ci.prisma
     - run: npm run lint
-    - run: npm run format
+    - run: npm run format:check
     - run: npm run test
       env:
         JWT_SECRET: ci-test-secret

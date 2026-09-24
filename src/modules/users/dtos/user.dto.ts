@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { createUserSchema, loginUserSchema } from "../schemas/user.schema.js";
+import { z } from 'zod';
+import { createUserSchema, loginUserSchema } from '../schemas/user.schema.js';
 
 /*
     DTOs são tipagens para os dados entre as camadas de controllers e services
