@@ -46,3 +46,9 @@ export const createSolicitacaoBodySchema = z.object({
   idDepartamentoSolicitado: z.coerce.number().int().positive(),
   descricao: z.string().trim().min(1),
 });
+
+export const getManyTicketSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(25).default(20),
+  status: z.enum(['open', 'in_service', 'closed']).optional(),
+});

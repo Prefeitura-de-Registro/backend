@@ -7,8 +7,9 @@ import {
   validateQuery,
 } from '../../shared/middlewares/validate.middleware.js';
 import { asyncHandler } from '../../shared/utils/async-handler.js';
-import { ticketController } from './ticket.controller.js';
+import { ticketController, TicketsController } from './ticket.controller.js';
 import {
+  getManyTicketSchema,
   createSolicitacaoBodySchema,
   getManyTicketsQuerySchema,
   ticketIdParamsSchema,
@@ -58,3 +59,14 @@ ticketRoutes.get(
 );
 
 export { ticketRoutes };
+
+const ticketsRoutes = Router();
+const ticketsController = new TicketsController();
+
+ticketsRoutes.get(
+  '/tickets',
+  validateQuery(getManyTicketSchema),
+  asyncHandler(ticketsController.getMany),
+);
+
+export { ticketsRoutes };

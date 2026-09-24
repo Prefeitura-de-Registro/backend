@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type {
+  getManyTicketSchema,
   createSolicitacaoBodySchema,
   getManyTicketsQuerySchema,
   ticketIdParamsSchema,
@@ -12,3 +13,5 @@ export type UpdateTicketBodyDTO = z.infer<typeof updateTicketBodySchema>;
 export type CreateSolicitacaoBodyDTO = z.infer<
   typeof createSolicitacaoBodySchema
 >;
+
+export type GetManyTicketDTO = z.infer<typeof getManyTicketSchema>;

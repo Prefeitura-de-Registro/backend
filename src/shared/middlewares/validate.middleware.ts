@@ -14,6 +14,7 @@ export function validateBody(schema: ZodType) {
   return (request: Request, _response: Response, next: NextFunction) => {
     try {
       request.body = schema.parse(request.body);
+      request.validated = { ...request.validated, body: request.body };
       next();
     } catch (error) {
       next(error);

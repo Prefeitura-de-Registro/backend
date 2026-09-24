@@ -1,5 +1,7 @@
+import { ticketService as portalTicketService } from './ticket.services.js';
 import type { Request, Response } from 'express';
 import type {
+  GetManyTicketDTO,
   CreateSolicitacaoBodyDTO,
   GetManyTicketsQueryDTO,
   TicketIdParamsDTO,
@@ -64,3 +66,14 @@ class TicketController {
 }
 
 export const ticketController = new TicketController();
+
+export class TicketsController {
+  getMany = async (request: Request, response: Response): Promise<void> => {
+    const filters = request.validated?.query as GetManyTicketDTO;
+    const user = request.user;
+
+    const result = await portalTicketService.getMany(filters, user);
+
+    response.status(200).json(result);
+  };
+}
