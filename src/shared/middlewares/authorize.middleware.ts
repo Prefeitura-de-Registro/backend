@@ -4,7 +4,7 @@ import { PapelUsuario } from '../types/token-payload.js';
 import { AppError } from '../errors/app-error.js';
 
 export function authorizeMiddleware(...allowedTypes: PapelUsuario[]) {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: Request, _res: Response, next: NextFunction) => {
         const user = req.user as TokenPayload;
 
         if (!user) {
