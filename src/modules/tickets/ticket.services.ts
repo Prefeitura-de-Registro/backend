@@ -1,9 +1,9 @@
-import { prisma } from "../../shared/database/prisma.js";
-import { GetManyTicketDTO } from "./dtos/ticket.dto.js";
+import { prisma } from '../../shared/database/prisma.js';
+import type { GetManyTicketDTO } from './dtos/ticket.dto.js';
 
 export interface UserContext {
   id?: number | string;
-  tipoUsuario?: "municipe" | "funcionario";
+  tipoUsuario?: 'municipe' | 'funcionario' | 'gestor' | 'anonimo';
 }
 
 class TicketService {
@@ -21,10 +21,10 @@ class TicketService {
     if (!user) {
       // Usuários anônimos acessam apenas tickets sem usuário vinculado
       where.userId = null;
-    } else if (user.tipoUsuario === "municipe") {
+    } else if (user.tipoUsuario === 'municipe') {
       // Munícipes visualizam apenas seus próprios tickets
       where.userId = Number(user.id);
-    } else if (user.tipoUsuario === "funcionario") {
+    } else if (user.tipoUsuario === 'funcionario') {
       // Funcionários têm acesso a todos os tickets
     }
 
@@ -33,7 +33,7 @@ class TicketService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       prisma.ticket.count({ where }),
     ]);

@@ -1,9 +1,17 @@
-import { z } from "zod";
-import { getManyTicketSchema } from "../schemas/ticket.schema.js";
+import type { z } from 'zod';
+import type {
+  getManyTicketSchema,
+  createSolicitacaoBodySchema,
+  getManyTicketsQuerySchema,
+  ticketIdParamsSchema,
+  updateTicketBodySchema,
+} from '../schemas/ticket.schema.js';
 
-/*
-    DTOs são tipagens para os dados entre as camadas de controllers e services
-    DTOs inferem os tipos definidos nos schemas zod
-*/
+export type TicketIdParamsDTO = z.infer<typeof ticketIdParamsSchema>;
+export type GetManyTicketsQueryDTO = z.infer<typeof getManyTicketsQuerySchema>;
+export type UpdateTicketBodyDTO = z.infer<typeof updateTicketBodySchema>;
+export type CreateSolicitacaoBodyDTO = z.infer<
+  typeof createSolicitacaoBodySchema
+>;
 
-export type GetManyTicketDTO = z.infer<typeof getManyTicketSchema>
+export type GetManyTicketDTO = z.infer<typeof getManyTicketSchema>;

@@ -21,7 +21,7 @@ Cada dominio vive em `src/modules`. O fluxo e `Route -> Controller -> Service ->
 
 ## Requisitos
 
-- Node.js 20 ou superior
+- Node.js 22.12 ou superior
 - Docker Desktop (o PostgreSQL com PostGIS e os dados de exemplo ficam em `../database`)
 
 ## Instalacao e configuracao
