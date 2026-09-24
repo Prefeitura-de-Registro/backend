@@ -231,7 +231,9 @@ class TicketService {
     return prisma.solicitacao.create({
       data: {
         idTicket: id,
+        idDepartamentoSolicitante: ticket.idDepartamento,
         idDepartamentoSolicitado: body.idDepartamentoSolicitado,
+        solicitadoPor: user.id,
         descricao: body.descricao,
       },
       include: { departamentoSolicitado: true },

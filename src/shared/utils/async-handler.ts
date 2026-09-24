@@ -1,4 +1,4 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 type AsyncRequestHandler = (
   request: Request,
@@ -11,4 +11,3 @@ export const asyncHandler = (handler: AsyncRequestHandler): RequestHandler => {
     void handler(request, response, next).catch(next);
   };
 };
-
