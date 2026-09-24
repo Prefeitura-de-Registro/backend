@@ -1,11 +1,17 @@
 import type { Request, Response } from 'express';
 import { generateToken } from '../../shared/utils/jwt.js';
 import { userService } from './user.service.js';
-import { CreateUserDTO, LoginUserDTO } from './dtos/user.dto.js';
+import type {
+  CreateUserDTO,
+  LoginUserDTO,
+  SetDepartamentosBodyDTO,
+  UpdateUserBodyDTO,
+  UserIdParamsDTO,
+} from './dtos/user.dto.js';
 
 export class UserController {
   register = async (request: Request, response: Response) => {
-    const data: CreateUserDTO = request.body;
+    const data = request.body as CreateUserDTO;
 
     const usuario = await userService.create(data);
 
@@ -26,7 +32,7 @@ export class UserController {
   };
 
   login = async (request: Request, response: Response) => {
-    const data: LoginUserDTO = request.body;
+    const data = request.body as LoginUserDTO;
 
     const usuario = await userService.login(data);
 
@@ -48,5 +54,31 @@ export class UserController {
 
   me = async (request: Request, response: Response) => {
     response.status(200).json(request.user);
+  };
+
+  update = async (request: Request, response: Response) => {
+    const { id } = request.validated?.params as UserIdParamsDTO;
+    const data = request.body as UpdateUserBodyDTO;
+
+    const usuario = await userService.update(id, data);
+
+    response.status(200).json(usuario);
+  };
+
+  remove = async (request: Request, response: Response) => {
+    const { id } = request.validated?.params as UserIdParamsDTO;
+
+    const usuario = await userService.softDelete(id);
+
+    response.status(200).json(usuario);
+  };
+
+  setDepartamentos = async (request: Request, response: Response) => {
+    const { id } = request.validated?.params as UserIdParamsDTO;
+    const data = request.body as SetDepartamentosBodyDTO;
+
+    const vinculos = await userService.setDepartamentos(id, data);
+
+    response.status(200).json(vinculos);
   };
 }
