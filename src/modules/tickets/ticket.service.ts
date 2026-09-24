@@ -1,17 +1,17 @@
-import { Prisma, TipoEvento } from "@prisma/client";
+import { Prisma, TipoEvento } from '@prisma/client';
 import {
   assertDepartmentAccess,
   assertFuncionarioPertenceAoDepartamento,
   getAccessibleDepartamentoIds,
-} from "../../shared/authorization/department-scope.service.js";
-import { prisma } from "../../shared/database/prisma.js";
-import { AppError } from "../../shared/errors/app-error.js";
-import type { TokenPayload } from "../../shared/types/token-payload.js";
+} from '../../shared/authorization/department-scope.service.js';
+import { prisma } from '../../shared/database/prisma.js';
+import { AppError } from '../../shared/errors/app-error.js';
+import type { TokenPayload } from '../../shared/types/token-payload.js';
 import type {
   CreateSolicitacaoBodyDTO,
   GetManyTicketsQueryDTO,
   UpdateTicketBodyDTO,
-} from "./dtos/ticket.dto.js";
+} from './dtos/ticket.dto.js';
 
 const ticketDetailInclude = {
   usuario: { select: { id: true, name: true, email: true } },
@@ -20,11 +20,11 @@ const ticketDetailInclude = {
   funcionarioResponsavel: { select: { id: true, name: true, email: true } },
   respostas: { include: { pergunta: true } },
   historicos: {
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     include: { usuario: { select: { id: true, name: true } } },
   },
   solicitacoes: {
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     include: { departamentoSolicitado: true },
   },
   arquivos: true,
@@ -43,19 +43,32 @@ class TicketService {
     if (Array.isArray(scope) && scope.length === 0) {
       return {
         data: [],
-        pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 },
+        pagination: {
+          page: query.page,
+          limit: query.limit,
+          total: 0,
+          totalPages: 0,
+        },
       };
     }
 
-    if (query.idDepartamento && Array.isArray(scope) && !scope.includes(query.idDepartamento)) {
-      throw new AppError("Você não tem acesso a este departamento", 403);
+    if (
+      query.idDepartamento &&
+      Array.isArray(scope) &&
+      !scope.includes(query.idDepartamento)
+    ) {
+      throw new AppError('Você não tem acesso a este departamento', 403);
     }
 
     const where: Prisma.TicketWhereInput = {
-      idDepartamento: query.idDepartamento ?? (Array.isArray(scope) ? { in: scope } : undefined),
+      idDepartamento:
+        query.idDepartamento ??
+        (Array.isArray(scope) ? { in: scope } : undefined),
       status: query.status,
       prioridade: query.prioridade,
-      descricao: query.busca ? { contains: query.busca, mode: "insensitive" } : undefined,
+      descricao: query.busca
+        ? { contains: query.busca, mode: 'insensitive' }
+        : undefined,
     };
 
     const [data, total] = await prisma.$transaction([
@@ -63,7 +76,7 @@ class TicketService {
         where,
         skip: (query.page - 1) * query.limit,
         take: query.limit,
-        orderBy: [{ prioridade: "desc" }, { createdAt: "asc" }],
+        orderBy: [{ prioridade: 'desc' }, { createdAt: 'asc' }],
         include: ticketListInclude,
       }),
       prisma.ticket.count({ where }),
@@ -85,7 +98,10 @@ class TicketService {
 
     await assertDepartmentAccess(user, ticket.idDepartamento);
 
-    return prisma.ticket.findUniqueOrThrow({ where: { id }, include: ticketDetailInclude });
+    return prisma.ticket.findUniqueOrThrow({
+      where: { id },
+      include: ticketDetailInclude,
+    });
   }
 
   async assume(user: TokenPayload, id: number) {
@@ -100,7 +116,7 @@ class TicketService {
       });
 
       if (result.count === 0) {
-        throw new AppError("Ticket já possui um responsável", 409);
+        throw new AppError('Ticket já possui um responsável', 409);
       }
 
       await tx.ticketHistorico.create({
@@ -112,7 +128,10 @@ class TicketService {
         },
       });
 
-      return tx.ticket.findUniqueOrThrow({ where: { id }, include: ticketDetailInclude });
+      return tx.ticket.findUniqueOrThrow({
+        where: { id },
+        include: ticketDetailInclude,
+      });
     });
   }
 
@@ -121,8 +140,14 @@ class TicketService {
 
     await assertDepartmentAccess(user, ticket.idDepartamento);
 
-    if (body.idFuncionarioResponsavel !== undefined && body.idFuncionarioResponsavel !== null) {
-      await assertFuncionarioPertenceAoDepartamento(body.idFuncionarioResponsavel, ticket.idDepartamento);
+    if (
+      body.idFuncionarioResponsavel !== undefined &&
+      body.idFuncionarioResponsavel !== null
+    ) {
+      await assertFuncionarioPertenceAoDepartamento(
+        body.idFuncionarioResponsavel,
+        ticket.idDepartamento,
+      );
     }
 
     const data: Prisma.TicketUpdateInput = {};
@@ -140,7 +165,10 @@ class TicketService {
       });
     }
 
-    if (body.prioridade !== undefined && body.prioridade !== ticket.prioridade) {
+    if (
+      body.prioridade !== undefined &&
+      body.prioridade !== ticket.prioridade
+    ) {
       data.prioridade = body.prioridade;
     }
 
@@ -158,7 +186,7 @@ class TicketService {
         tipoEvento: TipoEvento.ajuste_prazo,
         prazoMinutos: body.prazoPrimeiraRespostaMinutos,
         idUsuario: user.id,
-        texto: "Ajuste do prazo de primeira resposta",
+        texto: 'Ajuste do prazo de primeira resposta',
         createdAt: agora,
       });
     }
@@ -173,7 +201,7 @@ class TicketService {
         tipoEvento: TipoEvento.ajuste_prazo,
         prazoMinutos: body.prazoResolucaoMinutos,
         idUsuario: user.id,
-        texto: "Ajuste do prazo de resolução",
+        texto: 'Ajuste do prazo de resolução',
         createdAt: agora,
       });
     }
@@ -194,7 +222,10 @@ class TicketService {
     }
 
     if (Object.keys(data).length === 0) {
-      return prisma.ticket.findUniqueOrThrow({ where: { id }, include: ticketDetailInclude });
+      return prisma.ticket.findUniqueOrThrow({
+        where: { id },
+        include: ticketDetailInclude,
+      });
     }
 
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -204,18 +235,25 @@ class TicketService {
         await tx.ticketHistorico.createMany({ data: historicos });
       }
 
-      return tx.ticket.findUniqueOrThrow({ where: { id }, include: ticketDetailInclude });
+      return tx.ticket.findUniqueOrThrow({
+        where: { id },
+        include: ticketDetailInclude,
+      });
     });
   }
 
-  async createSolicitacao(user: TokenPayload, id: number, body: CreateSolicitacaoBodyDTO) {
+  async createSolicitacao(
+    user: TokenPayload,
+    id: number,
+    body: CreateSolicitacaoBodyDTO,
+  ) {
     const ticket = await this.findTicketOrThrow(id);
 
     await assertDepartmentAccess(user, ticket.idDepartamento);
 
     if (body.idDepartamentoSolicitado === ticket.idDepartamento) {
       throw new AppError(
-        "O departamento solicitado deve ser diferente do departamento responsável pelo ticket",
+        'O departamento solicitado deve ser diferente do departamento responsável pelo ticket',
         400,
       );
     }
@@ -225,7 +263,7 @@ class TicketService {
     });
 
     if (!departamentoSolicitado) {
-      throw new AppError("Departamento solicitado não encontrado", 404);
+      throw new AppError('Departamento solicitado não encontrado', 404);
     }
 
     return prisma.solicitacao.create({
@@ -247,11 +285,11 @@ class TicketService {
 
     return prisma.solicitacao.findMany({
       where: { idTicket: id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       include: {
         departamentoSolicitado: true,
         usuarioRespondedor: { select: { id: true, name: true } },
-        mensagens: { orderBy: { createdAt: "asc" } },
+        mensagens: { orderBy: { createdAt: 'asc' } },
       },
     });
   }
@@ -260,7 +298,7 @@ class TicketService {
     const ticket = await prisma.ticket.findUnique({ where: { id } });
 
     if (!ticket) {
-      throw new AppError("Ticket não encontrado", 404);
+      throw new AppError('Ticket não encontrado', 404);
     }
 
     return ticket;

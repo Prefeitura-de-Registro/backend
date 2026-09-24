@@ -1,15 +1,15 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 const TICKET_STATUS_VALUES = [
-  "aberto",
-  "em_analise",
-  "em_andamento",
-  "pendente",
-  "resolvido",
-  "fechado",
+  'aberto',
+  'em_analise',
+  'em_andamento',
+  'pendente',
+  'resolvido',
+  'fechado',
 ] as const;
 
-const TICKET_PRIORIDADE_VALUES = ["normal", "urgente"] as const;
+const TICKET_PRIORIDADE_VALUES = ['normal', 'urgente'] as const;
 
 export const ticketIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
@@ -31,10 +31,15 @@ export const updateTicketBodySchema = z
     descricao: z.string().trim().min(1).optional(),
     prazoPrimeiraRespostaMinutos: z.coerce.number().int().positive().optional(),
     prazoResolucaoMinutos: z.coerce.number().int().positive().optional(),
-    idFuncionarioResponsavel: z.coerce.number().int().positive().nullable().optional(),
+    idFuncionarioResponsavel: z.coerce
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
-    message: "Informe ao menos um campo para atualizar",
+    message: 'Informe ao menos um campo para atualizar',
   });
 
 export const createSolicitacaoBodySchema = z.object({

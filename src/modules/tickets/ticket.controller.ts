@@ -1,11 +1,11 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from 'express';
 import type {
   CreateSolicitacaoBodyDTO,
   GetManyTicketsQueryDTO,
   TicketIdParamsDTO,
   UpdateTicketBodyDTO,
-} from "./dtos/ticket.dto.js";
-import { ticketService } from "./ticket.service.js";
+} from './dtos/ticket.dto.js';
+import { ticketService } from './ticket.service.js';
 
 class TicketController {
   getMany = async (request: Request, response: Response) => {
@@ -45,7 +45,11 @@ class TicketController {
     const { id } = request.validated?.params as TicketIdParamsDTO;
     const body = request.body as CreateSolicitacaoBodyDTO;
 
-    const solicitacao = await ticketService.createSolicitacao(request.user!, id, body);
+    const solicitacao = await ticketService.createSolicitacao(
+      request.user!,
+      id,
+      body,
+    );
 
     response.status(201).json(solicitacao);
   };

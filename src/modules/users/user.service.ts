@@ -1,13 +1,13 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../shared/database/prisma.js";
-import { AppError } from "../../shared/errors/app-error.js";
+import { Prisma } from '@prisma/client';
+import { prisma } from '../../shared/database/prisma.js';
+import { AppError } from '../../shared/errors/app-error.js';
 import type {
   CreateUserDTO,
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
-} from "./dtos/user.dto.js";
-import { hashPassword, comparePassword } from "../../shared/utils/hash.js";
+} from './dtos/user.dto.js';
+import { hashPassword, comparePassword } from '../../shared/utils/hash.js';
 
 const userSummarySelect = {
   id: true,
@@ -30,7 +30,7 @@ class UserService {
 
     if (existente) {
       if (existente.ativo) {
-        throw new AppError("Já existe um cadastro com esse e-mail", 409);
+        throw new AppError('Já existe um cadastro com esse e-mail', 409);
       }
 
       // Usuário tinha passado por soft delete: reativa o mesmo registro em
@@ -41,7 +41,7 @@ class UserService {
         data: {
           name: data.nome,
           passwordHash,
-          tipoUsuario: data.tipoUsuario ?? "municipe",
+          tipoUsuario: data.tipoUsuario ?? 'municipe',
           ativo: true,
         },
         select: {
@@ -59,7 +59,7 @@ class UserService {
         name: data.nome,
         email: data.email,
         passwordHash,
-        tipoUsuario: data.tipoUsuario ?? "municipe",
+        tipoUsuario: data.tipoUsuario ?? 'municipe',
       },
       select: {
         id: true,
@@ -82,13 +82,13 @@ class UserService {
     });
 
     if (!usuario || !usuario.passwordHash) {
-      throw new AppError("E-mail ou senha inválidos", 401);
+      throw new AppError('E-mail ou senha inválidos', 401);
     }
 
     const senhaValida = await comparePassword(data.senha, usuario.passwordHash);
 
     if (!senhaValida) {
-      throw new AppError("E-mail ou senha inválidos", 401);
+      throw new AppError('E-mail ou senha inválidos', 401);
     }
 
     return usuario;
@@ -98,10 +98,12 @@ class UserService {
     const usuario = await this.findUserOrThrow(id);
 
     if (data.email && data.email !== usuario.email) {
-      const emailEmUso = await prisma.user.findFirst({ where: { email: data.email } });
+      const emailEmUso = await prisma.user.findFirst({
+        where: { email: data.email },
+      });
 
       if (emailEmUso) {
-        throw new AppError("Já existe um cadastro com esse e-mail", 409);
+        throw new AppError('Já existe um cadastro com esse e-mail', 409);
       }
     }
 
@@ -134,7 +136,7 @@ class UserService {
     const usuario = await this.findUserOrThrow(id);
 
     if (!usuario.ativo) {
-      throw new AppError("Usuário já está inativo", 409);
+      throw new AppError('Usuário já está inativo', 409);
     }
 
     return prisma.user.update({
@@ -155,7 +157,10 @@ class UserService {
       });
 
       if (existentes !== departamentoIds.length) {
-        throw new AppError("Um ou mais departamentos informados não existem", 400);
+        throw new AppError(
+          'Um ou mais departamentos informados não existem',
+          400,
+        );
       }
     }
 
@@ -164,7 +169,10 @@ class UserService {
 
       if (departamentoIds.length > 0) {
         await tx.usuarioDepartamento.createMany({
-          data: departamentoIds.map((idDepartamento) => ({ idUsuario: id, idDepartamento })),
+          data: departamentoIds.map((idDepartamento) => ({
+            idUsuario: id,
+            idDepartamento,
+          })),
         });
       }
 
@@ -179,7 +187,7 @@ class UserService {
     const usuario = await prisma.user.findUnique({ where: { id } });
 
     if (!usuario) {
-      throw new AppError("Usuário não encontrado", 404);
+      throw new AppError('Usuário não encontrado', 404);
     }
 
     return usuario;
