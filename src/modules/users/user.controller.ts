@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
-import { generateToken } from "../../shared/utils/jwt.js";
-import { userService } from "./user.service.js";
-import { CreateUserDTO, LoginUserDTO } from "./dtos/user.dto.js";
+import type { Request, Response } from 'express';
+import { generateToken } from '../../shared/utils/jwt.js';
+import { userService } from './user.service.js';
+import { CreateUserDTO, LoginUserDTO } from './dtos/user.dto.js';
 
 export class UserController {
   register = async (request: Request, response: Response) => {

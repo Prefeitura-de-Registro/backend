@@ -1,7 +1,7 @@
-import { prisma } from "../../shared/database/prisma.js";
-import { AppError } from "../../shared/errors/app-error.js";
+import { prisma } from '../../shared/database/prisma.js';
+import { AppError } from '../../shared/errors/app-error.js';
 import { CreateUserDTO, LoginUserDTO } from './dtos/user.dto.js';
-import { hashPassword, comparePassword } from "../../shared/utils/hash.js";
+import { hashPassword, comparePassword } from '../../shared/utils/hash.js';
 
 class UserService {
   async create(data: CreateUserDTO) {
@@ -12,7 +12,7 @@ class UserService {
     });
 
     if (existente) {
-      throw new AppError("Já existe um cadastro com esse e-mail", 409);
+      throw new AppError('Já existe um cadastro com esse e-mail', 409);
     }
 
     const passwordHash = await hashPassword(data.senha);
@@ -22,7 +22,7 @@ class UserService {
         name: data.nome,
         email: data.email,
         passwordHash,
-        tipoUsuario: data.tipoUsuario
+        tipoUsuario: data.tipoUsuario,
       },
       select: {
         id: true,
@@ -45,13 +45,13 @@ class UserService {
     });
 
     if (!usuario || !usuario.passwordHash) {
-      throw new AppError("E-mail ou senha inválidos", 401);
+      throw new AppError('E-mail ou senha inválidos', 401);
     }
 
     const senhaValida = await comparePassword(data.senha, usuario.passwordHash);
 
     if (!senhaValida) {
-      throw new AppError("E-mail ou senha inválidos", 401);
+      throw new AppError('E-mail ou senha inválidos', 401);
     }
 
     return usuario;

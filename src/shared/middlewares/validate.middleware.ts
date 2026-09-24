@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from "express";
-import { z } from "zod";
+import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 
 /*
     Middleware de validação de entradas em runtime
@@ -7,12 +7,12 @@ import { z } from "zod";
 */
 
 export function validateBody(schema: z.ZodType) {
-    return (req: Request, _res: Response, next: NextFunction) => {
-        try {
-            req.body = schema.parse(req.body);
-            next();
-        } catch (error) {
-            next(error);
-        }
-    };
+  return (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      req.body = schema.parse(req.body);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 }
