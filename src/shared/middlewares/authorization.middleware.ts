@@ -1,5 +1,5 @@
-import type { NextFunction, Request, Response } from "express";
-import { AppError } from "../errors/app-error.js";
+import type { NextFunction, Request, Response } from 'express';
+import { AppError } from '../errors/app-error.js';
 
 /**
  * Responsável por responder "esse usuário pode utilizar o painel operacional?".
@@ -9,13 +9,39 @@ import { AppError } from "../errors/app-error.js";
  * tickets (escopo de departamentos) já está preparado em
  * `shared/authorization/department-scope.service.ts` e não precisa mudar.
  */
-export function requireFuncionario(request: Request, _response: Response, next: NextFunction): void {
+export function requireFuncionario(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
   if (!request.user) {
-    throw new AppError("Usuário não autenticado", 401);
+    throw new AppError('Usuário não autenticado', 401);
   }
 
-  if (request.user.tipoUsuario !== "funcionario") {
-    throw new AppError("Acesso restrito a funcionários", 403);
+  if (request.user.tipoUsuario !== 'funcionario') {
+    throw new AppError('Acesso restrito a funcionários', 403);
+  }
+
+  next();
+}
+
+/**
+ * Responsável por responder "esse usuário é gestor?".
+ *
+ * Usado nas rotas de gestão de usuários (cadastro de funcionários, edição,
+ * desativação e vínculo com departamentos). Funcionários comuns NÃO passam.
+ */
+export function requireGestor(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
+  if (!request.user) {
+    throw new AppError('Usuário não autenticado', 401);
+  }
+
+  if (request.user.tipoUsuario !== 'gestor') {
+    throw new AppError('Acesso restrito a gestores', 403);
   }
 
   next();

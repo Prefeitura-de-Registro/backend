@@ -1,11 +1,12 @@
-import type { z } from "zod";
+import type { z } from 'zod';
 import type {
+  createFuncionarioSchema,
   createUserSchema,
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
   userIdParamsSchema,
-} from "../schemas/user.schema.js";
+} from '../schemas/user.schema.js';
 
 /*
     DTOs são tipagens para os dados entre as camadas de controllers e services
@@ -14,10 +15,14 @@ import type {
 
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
 
+export type CreateFuncionarioDTO = z.infer<typeof createFuncionarioSchema>;
+
 export type LoginUserDTO = z.infer<typeof loginUserSchema>;
 
 export type UserIdParamsDTO = z.infer<typeof userIdParamsSchema>;
 
 export type UpdateUserBodyDTO = z.infer<typeof updateUserBodySchema>;
 
-export type SetDepartamentosBodyDTO = z.infer<typeof setDepartamentosBodySchema>;
+export type SetDepartamentosBodyDTO = z.infer<
+  typeof setDepartamentosBodySchema
+>;

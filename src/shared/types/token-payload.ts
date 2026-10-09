@@ -1,4 +1,6 @@
-import type { TipoUsuario } from "@prisma/client";
+import type { TipoUsuario } from '@prisma/client';
+
+export type PapelUsuario = TipoUsuario;
 
 export interface TokenPayload {
   id: number;

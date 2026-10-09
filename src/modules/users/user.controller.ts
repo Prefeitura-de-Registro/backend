@@ -1,19 +1,20 @@
-import type { Request, Response } from "express";
-import { generateToken } from "../../shared/utils/jwt.js";
-import { userService } from "./user.service.js";
+import type { Request, Response } from 'express';
+import { generateToken } from '../../shared/utils/jwt.js';
+import { userService } from './user.service.js';
 import type {
+  CreateFuncionarioDTO,
   CreateUserDTO,
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
   UserIdParamsDTO,
-} from "./dtos/user.dto.js";
+} from './dtos/user.dto.js';
 
 export class UserController {
   register = async (request: Request, response: Response) => {
     const data = request.body as CreateUserDTO;
 
-    const usuario = await userService.create(data);
+    const usuario = await userService.createMunicipe(data);
 
     const { id, email, name, tipoUsuario } = usuario;
 
@@ -28,6 +29,23 @@ export class UserController {
         created_at: usuario.createdAt,
       },
       token,
+    });
+  };
+
+  registerFuncionario = async (request: Request, response: Response) => {
+    const data = request.body as CreateFuncionarioDTO;
+
+    const usuario = await userService.createFuncionario(data);
+
+    // Sem token: quem está logado é o gestor, não o funcionário recém-criado.
+    response.status(201).json({
+      usuario: {
+        id: usuario.id,
+        nome: usuario.name,
+        email: usuario.email,
+        tipo_usuario: usuario.tipoUsuario,
+        created_at: usuario.createdAt,
+      },
     });
   };
 
@@ -55,7 +73,6 @@ export class UserController {
   me = async (request: Request, response: Response) => {
     response.status(200).json(request.user);
   };
-
   update = async (request: Request, response: Response) => {
     const { id } = request.validated?.params as UserIdParamsDTO;
     const data = request.body as UpdateUserBodyDTO;
