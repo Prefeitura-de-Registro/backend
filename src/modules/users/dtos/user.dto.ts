@@ -1,11 +1,12 @@
 import type { z } from 'zod';
 import type {
-  createFuncionarioSchema,
   createUserSchema,
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
   userIdParamsSchema,
+  getManyFuncionariosQuerySchema,
+  createFuncionarioBodySchema,
 } from '../schemas/user.schema.js';
 
 /*
@@ -14,8 +15,6 @@ import type {
 */
 
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
-
-export type CreateFuncionarioDTO = z.infer<typeof createFuncionarioSchema>;
 
 export type LoginUserDTO = z.infer<typeof loginUserSchema>;
 
@@ -26,3 +25,7 @@ export type UpdateUserBodyDTO = z.infer<typeof updateUserBodySchema>;
 export type SetDepartamentosBodyDTO = z.infer<
   typeof setDepartamentosBodySchema
 >;
+
+export type GetManyFuncionariosQueryDTO = z.infer<typeof getManyFuncionariosQuerySchema>;
+
+export type CreateFuncionarioBodyDTO = z.infer<typeof createFuncionarioBodySchema>;

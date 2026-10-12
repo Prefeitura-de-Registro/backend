@@ -3,12 +3,14 @@ import { asyncHandler } from '../../shared/utils/async-handler.js';
 import {
   validateBody,
   validateParams,
+  validateQuery,
 } from '../../shared/middlewares/validate.middleware.js';
-import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
-import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
+import { authMiddleware } from '../../shared/middlewares/authenticate.middleware.js';
+import { authorizeMiddleware } from '../../shared/middlewares/authorize.middleware.js';
 import {
-  createFuncionarioSchema,
+  createFuncionarioBodySchema,
   createUserSchema,
+  getManyFuncionariosQuerySchema,
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
@@ -19,7 +21,7 @@ import { UserController } from './user.controller.js';
 const usersRoutes = Router();
 const usersController = new UserController();
 
-// Cadastro público: exclusivo de munícipes (o tipo é definido no service).
+// rotas públicas
 usersRoutes.post(
   '/register',
   validateBody(createUserSchema),
@@ -30,22 +32,21 @@ usersRoutes.post(
   validateBody(loginUserSchema),
   asyncHandler(usersController.login),
 );
-usersRoutes.get('/me', authMiddleware, asyncHandler(usersController.me));
 
-// Gestão de usuários: somente gestores. Isso inclui cadastrar funcionários,
-// editar (inclusive trocar o tipo), desativar e vincular a departamentos.
+// autenticadas
+usersRoutes.use(authMiddleware);
+usersRoutes.get('/me', asyncHandler(usersController.me));
+
+// gestor
+usersRoutes.use(authorizeMiddleware('gestor'));
 usersRoutes.post(
-  '/funcionarios',
-  authMiddleware,
-  requireGestor,
-  validateBody(createFuncionarioSchema),
-  asyncHandler(usersController.registerFuncionario),
-);
+  '/funcionario',
+  validateBody(createFuncionarioBodySchema),
+  asyncHandler(usersController.createFuncionario)
+)
 
 usersRoutes.patch(
   '/:id',
-  authMiddleware,
-  requireGestor,
   validateParams(userIdParamsSchema),
   validateBody(updateUserBodySchema),
   asyncHandler(usersController.update),
@@ -53,19 +54,21 @@ usersRoutes.patch(
 
 usersRoutes.delete(
   '/:id',
-  authMiddleware,
-  requireGestor,
   validateParams(userIdParamsSchema),
   asyncHandler(usersController.remove),
 );
 
 usersRoutes.put(
   '/:id/departamentos',
-  authMiddleware,
-  requireGestor,
   validateParams(userIdParamsSchema),
   validateBody(setDepartamentosBodySchema),
   asyncHandler(usersController.setDepartamentos),
 );
+
+usersRoutes.get(
+  '/funcionario',
+  validateQuery(getManyFuncionariosQuerySchema),
+  asyncHandler(usersController.getManyFuncionarios),
+)
 
 export { usersRoutes };
