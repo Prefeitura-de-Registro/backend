@@ -12,6 +12,10 @@ export function authorizeMiddleware(...allowedTypes: PapelUsuario[]) {
     }
 
     if (!allowedTypes.includes(user.tipoUsuario)) {
+      // Sem login (anônimo) -> 401; logado sem permissão -> 403
+      if (user.tipoUsuario === 'anonimo') {
+        throw new AppError('Usuário não autenticado', 401);
+      }
       throw new AppError('Acesso restrito', 403);
     }
 
