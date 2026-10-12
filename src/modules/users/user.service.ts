@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/database/prisma.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type {
+  CreateFuncionarioDTO,
   CreateUserDTO,
   LoginUserDTO,
   SetDepartamentosBodyDTO,
@@ -18,20 +19,58 @@ const userSummarySelect = {
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
+const userCreatedSelect = {
+  id: true,
+  name: true,
+  email: true,
+  tipoUsuario: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+/** Tipos que podem ser criados pelo service. `gestor` nunca é criado pela API. */
+type TipoUsuarioCriavel = 'municipe' | 'funcionario';
+
 class UserService {
-  async create(data: CreateUserDTO) {
+  /**
+   * Cadastro PÚBLICO (sem autenticação): cria somente munícipes.
+   * O tipo é fixado aqui e nunca vem do corpo da requisição.
+   */
+  async createMunicipe(data: CreateUserDTO) {
+    return this.createAccount(data, 'municipe');
+  }
+
+  /**
+   * Cadastro de funcionário. Só deve ser chamado por rota protegida
+   * com requireGestor — o service não conhece o solicitante.
+   */
+  async createFuncionario(data: CreateFuncionarioDTO) {
+    return this.createAccount(data, 'funcionario');
+  }
+
+  private async createAccount(
+    data: CreateUserDTO,
+    tipoUsuario: TipoUsuarioCriavel,
+  ) {
     const existente = await prisma.user.findFirst({
       where: {
         email: data.email,
       },
     });
 
-    const passwordHash = await hashPassword(data.senha);
-
     if (existente) {
-      if (existente.ativo) {
+      // Conta ativa, ou conta inativa de gestor/funcionário (só um gestor
+      // pode lidar com elas): nunca é sobrescrita por esta rota.
+      const reativavel =
+        !existente.ativo &&
+        (existente.tipoUsuario === 'municipe' ||
+          (tipoUsuario === 'funcionario' &&
+            existente.tipoUsuario === 'funcionario'));
+
+      if (!reativavel) {
         throw new AppError('Já existe um cadastro com esse e-mail', 409);
       }
+
+      const passwordHash = await hashPassword(data.senha);
 
       // Usuário tinha passado por soft delete: reativa o mesmo registro em
       // vez de criar um novo, preservando o histórico já vinculado a ele
@@ -41,36 +80,24 @@ class UserService {
         data: {
           name: data.nome,
           passwordHash,
-          tipoUsuario: data.tipoUsuario ?? 'municipe',
+          tipoUsuario,
           ativo: true,
         },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          tipoUsuario: true,
-          createdAt: true,
-        },
+        select: userCreatedSelect,
       });
     }
 
-    const usuario = await prisma.user.create({
+    const passwordHash = await hashPassword(data.senha);
+
+    return prisma.user.create({
       data: {
         name: data.nome,
         email: data.email,
         passwordHash,
-        tipoUsuario: data.tipoUsuario ?? 'municipe',
+        tipoUsuario,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        tipoUsuario: true,
-        createdAt: true,
-      },
+      select: userCreatedSelect,
     });
-
-    return usuario;
   }
 
   async login(data: LoginUserDTO) {
@@ -93,7 +120,6 @@ class UserService {
 
     return usuario;
   }
-
   async update(id: number, data: UpdateUserBodyDTO) {
     const usuario = await this.findUserOrThrow(id);
 

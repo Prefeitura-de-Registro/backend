@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type {
+  createFuncionarioSchema,
   createUserSchema,
   loginUserSchema,
   setDepartamentosBodySchema,
@@ -13,6 +14,8 @@ import type {
 */
 
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
+
+export type CreateFuncionarioDTO = z.infer<typeof createFuncionarioSchema>;
 
 export type LoginUserDTO = z.infer<typeof loginUserSchema>;
 

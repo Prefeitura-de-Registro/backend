@@ -5,8 +5,9 @@ import {
   validateParams,
 } from '../../shared/middlewares/validate.middleware.js';
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
-import { requireFuncionario } from '../../shared/middlewares/authorization.middleware.js';
+import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
 import {
+  createFuncionarioSchema,
   createUserSchema,
   loginUserSchema,
   setDepartamentosBodySchema,
@@ -18,6 +19,7 @@ import { UserController } from './user.controller.js';
 const usersRoutes = Router();
 const usersController = new UserController();
 
+// Cadastro público: exclusivo de munícipes (o tipo é definido no service).
 usersRoutes.post(
   '/register',
   validateBody(createUserSchema),
@@ -30,13 +32,20 @@ usersRoutes.post(
 );
 usersRoutes.get('/me', authMiddleware, asyncHandler(usersController.me));
 
-// Gestão de usuários. Ainda não existe um tipo "admin" no banco (ver Issue #11),
-// então por ora exigimos apenas estar autenticado como funcionário. Quando o
-// tipo admin existir, troque requireFuncionario por um requireAdmin aqui.
+// Gestão de usuários: somente gestores. Isso inclui cadastrar funcionários,
+// editar (inclusive trocar o tipo), desativar e vincular a departamentos.
+usersRoutes.post(
+  '/funcionarios',
+  authMiddleware,
+  requireGestor,
+  validateBody(createFuncionarioSchema),
+  asyncHandler(usersController.registerFuncionario),
+);
+
 usersRoutes.patch(
   '/:id',
   authMiddleware,
-  requireFuncionario,
+  requireGestor,
   validateParams(userIdParamsSchema),
   validateBody(updateUserBodySchema),
   asyncHandler(usersController.update),
@@ -45,7 +54,7 @@ usersRoutes.patch(
 usersRoutes.delete(
   '/:id',
   authMiddleware,
-  requireFuncionario,
+  requireGestor,
   validateParams(userIdParamsSchema),
   asyncHandler(usersController.remove),
 );
@@ -53,7 +62,7 @@ usersRoutes.delete(
 usersRoutes.put(
   '/:id/departamentos',
   authMiddleware,
-  requireFuncionario,
+  requireGestor,
   validateParams(userIdParamsSchema),
   validateBody(setDepartamentosBodySchema),
   asyncHandler(usersController.setDepartamentos),
