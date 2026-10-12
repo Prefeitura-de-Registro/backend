@@ -1,6 +1,6 @@
 import type { TipoUsuario } from '@prisma/client';
 
-export type PapelUsuario = TipoUsuario;
+export type PapelUsuario = TipoUsuario | 'anonimo';
 
 export interface TokenPayload {
   id: number;
