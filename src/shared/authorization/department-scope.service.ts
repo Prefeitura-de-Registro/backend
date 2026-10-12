@@ -56,3 +56,21 @@ export async function assertFuncionarioPertenceAoDepartamento(
     );
   }
 }
+
+// verifica IDs dos departamentos ativos
+export async function getActiveDepartamentoIds(
+  departamentoIds: number[]
+): Promise<number[]> {
+  const idsUnicos = [...new Set(departamentoIds)];
+
+  if(idsUnicos.length === 0){
+    return [];
+  }
+
+  const departamentos = await prisma.departamento.findMany({
+    where: { id: { in: idsUnicos }, ativo: true },
+    select: { id: true },
+  });
+
+  return departamentos.map((departamento: {id: number}) => departamento.id);
+}
