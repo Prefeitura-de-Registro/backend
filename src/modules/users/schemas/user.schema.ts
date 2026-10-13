@@ -40,6 +40,22 @@ export const updateUserBodySchema = z
     message: 'Informe ao menos um campo para atualizar',
   });
 
+export const updateMeBodySchema = z
+  .object({
+    nome: z.string().trim().min(3, 'O nome deve ter pelo menos 3 caracteres').optional(),
+    email: z.string().trim().toLowerCase().email('Informe um email válido').optional(),
+    senha: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres').optional(),
+    senhaAtual: z.string().min(1).optional(),
+    // sem tipoUsuario: campos desconhecidos são descartados pelo Zod
+  })
+  .refine((d) => d.nome !== undefined || d.email !== undefined || d.senha !== undefined, {
+    message: 'Informe ao menos um campo para atualizar',
+  })
+  .refine((d) => (d.email === undefined && d.senha === undefined) || Boolean(d.senhaAtual), {
+    message: 'Informe a senha atual para alterar e-mail ou senha',
+    path: ['senhaAtual'],
+  });
+
 export const setDepartamentosBodySchema = z.object({
   // Lista COMPLETA dos departamentos do usuário (substitui os vínculos atuais).
   // Mande um array vazio para remover todos os vínculos.

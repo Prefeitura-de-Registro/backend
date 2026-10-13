@@ -7,6 +7,7 @@ import {
 } from '../../shared/middlewares/validate.middleware.js';
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
 import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
+import { requireAutenticado } from '../../shared/middlewares/authorization.middleware.js';
 import {
   createFuncionarioBodySchema,
   createUserSchema,
@@ -14,6 +15,7 @@ import {
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
+  updateMeBodySchema,
   userIdParamsSchema,
 } from './schemas/user.schema.js';
 import { UserController } from './user.controller.js';
@@ -36,6 +38,12 @@ usersRoutes.post(
 // rotas autenticadas
 usersRoutes.use(authMiddleware);
 usersRoutes.get('/me', asyncHandler(usersController.me));
+usersRoutes.patch(
+  '/me',
+  requireAutenticado,
+  validateBody(updateMeBodySchema),
+  asyncHandler(usersController.updateMe),
+);
 
 // rotas de gestor
 usersRoutes.use(requireGestor);

@@ -4,6 +4,7 @@ import type {
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
+  updateMeBodySchema,
   userIdParamsSchema,
   getManyFuncionariosQuerySchema,
   createFuncionarioBodySchema,
@@ -22,9 +23,9 @@ export type UserIdParamsDTO = z.infer<typeof userIdParamsSchema>;
 
 export type UpdateUserBodyDTO = z.infer<typeof updateUserBodySchema>;
 
-export type SetDepartamentosBodyDTO = z.infer<
-  typeof setDepartamentosBodySchema
->;
+export type UpdateMeBodyDTO = z.infer<typeof updateMeBodySchema>;
+
+export type SetDepartamentosBodyDTO = z.infer<typeof setDepartamentosBodySchema>;
 
 export type GetManyFuncionariosQueryDTO = z.infer<typeof getManyFuncionariosQuerySchema>;
 

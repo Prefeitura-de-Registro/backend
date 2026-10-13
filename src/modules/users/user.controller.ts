@@ -8,6 +8,7 @@ import type {
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
+  UpdateMeBodyDTO,
   UserIdParamsDTO,
 } from './dtos/user.dto.js';
 
@@ -67,6 +68,14 @@ export class UserController {
     response.status(200).json(usuario);
   };
 
+  updateMe = async (request: Request, response: Response) => {
+    const data = request.validated?.body as UpdateMeBodyDTO;
+
+    const usuario = await userService.updateMe(request.user!.id, data);
+
+    response.status(200).json(usuario);
+  };
+
   remove = async (request: Request, response: Response) => {
     const { id } = request.validated?.params as UserIdParamsDTO;
 
@@ -86,7 +95,7 @@ export class UserController {
 
   getManyFuncionarios = async (request: Request, response: Response) => {
     const query = request.validated?.query as GetManyFuncionariosQueryDTO;
-    
+
     const result = await userService.getManyFuncionarios(query);
 
     response.status(200).json(result);

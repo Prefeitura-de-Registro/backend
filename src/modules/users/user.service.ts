@@ -6,6 +6,7 @@ import type {
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
+  UpdateMeBodyDTO,
   GetManyFuncionariosQueryDTO,
   CreateFuncionarioBodyDTO,
 } from './dtos/user.dto.js';
@@ -173,6 +174,26 @@ class UserService {
       select: userSummarySelect,
     });
   }
+
+  async updateMe(id: number, data: UpdateMeBodyDTO) {
+  const { senhaAtual, ...campos } = data;
+
+  if (campos.email !== undefined || campos.senha !== undefined) {
+    const usuario = await this.findUserOrThrow(id);
+
+    const senhaValida =
+      usuario.passwordHash !== null &&
+      (await comparePassword(senhaAtual!, usuario.passwordHash));
+
+    if (!senhaValida) {
+      // 400 e não 401, para o front não confundir com sessão expirada e deslogar
+      throw new AppError('Senha atual incorreta', 400);
+    }
+  }
+
+  // campos não tem tipoUsuario, então não há como mudar o próprio papel
+  return this.update(id, campos);
+}
 
   async softDelete(id: number) {
     const usuario = await this.findUserOrThrow(id);
