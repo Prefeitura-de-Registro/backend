@@ -3,10 +3,10 @@ import type { MapaTicketsQueryDTO } from './dtos/mapa.dto.js';
 import { mapaService } from './mapa.service.js';
 
 class MapaController {
-  getTickets = async (request: Request, response: Response) => {
+  getTicketsMap = async (request: Request, response: Response) => {
     const query = request.validated?.query as MapaTicketsQueryDTO;
 
-    const result = await mapaService.getTickets(request.user!, query);
+    const result = await mapaService.getTicketsMap(request.user!, query);
 
     response.status(200).json(result);
   };

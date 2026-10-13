@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { authMiddleware } from '../../shared/middlewares/authenticate.middleware.js';
-import { authorizeMiddleware } from '../../shared/middlewares/authorize.middleware.js';
+import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
+import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { validateQuery } from '../../shared/middlewares/validate.middleware.js';
 import { relatorioQuerySchema } from './schemas/relatorio.schema.js';
 import { relatorioController } from './relatorio.controller.js';
 
 const relatorioRoutes = Router();
-relatorioRoutes.use(authMiddleware, authorizeMiddleware('gestor'));
+
+// rotas de gestor
+relatorioRoutes.use(authMiddleware, requireGestor);
 
 relatorioRoutes.get('/indicadores', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getIndicadores));
 relatorioRoutes.get('/volume', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getVolumeSemanal));

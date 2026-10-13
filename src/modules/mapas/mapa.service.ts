@@ -17,7 +17,7 @@ import type {
 } from './types/mapa.types.js';
 
 class MapaService {
-  async getTickets(user: TokenPayload, query: MapaTicketsQueryDTO): Promise<MapaTicketsResposta> {
+  async getTicketsMap(user: TokenPayload, query: MapaTicketsQueryDTO): Promise<MapaTicketsResposta> {
     const { inicio, fim, status, idDepartamento, busca, lat, lng, raioKm, limite } = query;
     const periodo = montarPeriodo(inicio, fim);
 

@@ -2,12 +2,10 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../errors/app-error.js';
 
 /**
- * Responsável por responder "esse usuário pode utilizar o painel operacional?".
+ * Responsável por responder "esse usuário é funcionário?".
  *
- * Hoje o banco só possui os tipos `municipe` e `funcionario`. Quando um tipo
- * `admin` existir, basta ajustar a condição abaixo — o restante do domínio de
- * tickets (escopo de departamentos) já está preparado em
- * `shared/authorization/department-scope.service.ts` e não precisa mudar.
+ * Usado nas rotas de operadores (manipulação de tickets, visualização de mapas,
+ * criação de solicitações, etc). Munícipes NÃO passam. Funcionários e gestores PASSAM.
  */
 export function requireFuncionario(
   request: Request,
@@ -18,7 +16,7 @@ export function requireFuncionario(
     throw new AppError('Usuário não autenticado', 401);
   }
 
-  if (request.user.tipoUsuario !== 'funcionario') {
+  if (request.user.tipoUsuario !== 'funcionario' || 'gestor') {
     throw new AppError('Acesso restrito a funcionários', 403);
   }
 

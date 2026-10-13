@@ -5,8 +5,8 @@ import {
   validateParams,
   validateQuery,
 } from '../../shared/middlewares/validate.middleware.js';
-import { authMiddleware } from '../../shared/middlewares/authenticate.middleware.js';
-import { authorizeMiddleware } from '../../shared/middlewares/authorize.middleware.js';
+import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
+import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
 import {
   createFuncionarioBodySchema,
   createUserSchema,
@@ -33,14 +33,14 @@ usersRoutes.post(
   asyncHandler(usersController.login),
 );
 
-// autenticadas
+// rotas autenticadas
 usersRoutes.use(authMiddleware);
 usersRoutes.get('/me', asyncHandler(usersController.me));
 
-// gestor
-usersRoutes.use(authorizeMiddleware('gestor'));
+// rotas de gestor
+usersRoutes.use(requireGestor);
 usersRoutes.post(
-  '/funcionario',
+  '/',
   validateBody(createFuncionarioBodySchema),
   asyncHandler(usersController.createFuncionario)
 )
@@ -66,7 +66,7 @@ usersRoutes.put(
 );
 
 usersRoutes.get(
-  '/funcionario',
+  '/',
   validateQuery(getManyFuncionariosQuerySchema),
   asyncHandler(usersController.getManyFuncionarios),
 )
