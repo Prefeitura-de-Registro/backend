@@ -26,7 +26,19 @@ vi.mock('../../shared/utils/hash.js', () => ({
 
 import { app } from '../../app.js';
 
-function tokenFor(tipoUsuario: string, id = 10) {
+// Um id por tipo: o authMiddleware agora busca o usuário do token no banco
+const ID_POR_TIPO: Record<string, number> = { municipe: 11, funcionario: 12, gestor: 13 };
+const usuariosDoToken = Object.entries(ID_POR_TIPO).map(([tipoUsuario, id]) => ({
+  id,
+  email: `${tipoUsuario}@teste.com`,
+  name: 'Teste',
+  tipoUsuario,
+  ativo: true,
+}));
+const buscarUsuarioDoToken = async ({ where }: { where: { id: number } }) =>
+  usuariosDoToken.find((u) => u.id === where.id) ?? null;
+
+function tokenFor(tipoUsuario: string, id = ID_POR_TIPO[tipoUsuario] ?? 10) {
   return jwt.sign(
     { id, email: `${tipoUsuario}@teste.com`, name: 'Teste', tipoUsuario },
     process.env.JWT_SECRET as string,
@@ -54,6 +66,7 @@ function criadoComo(tipoUsuario: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.user.findFirst.mockResolvedValue(null);
+  prismaMock.user.findUnique.mockImplementation(buscarUsuarioDoToken);
   prismaMock.user.create.mockImplementation(
     async ({ data }: { data: { tipoUsuario: string } }) =>
       criadoComo(data.tipoUsuario),
@@ -254,11 +267,11 @@ describe('gestão de usuários (PATCH / DELETE / PUT departamentos)', () => {
   });
 
   it('PATCH /:id permite que o gestor promova um munícipe a funcionário', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 7,
-      email: 'a@teste.com',
-      ativo: true,
-    });
+    prismaMock.user.findUnique.mockImplementation(async (args: { where: { id: number } }) =>
+      args.where.id === 7
+        ? { id: 7, email: 'a@teste.com', ativo: true, reservado: false }
+        : buscarUsuarioDoToken(args),
+    );
     prismaMock.user.update.mockResolvedValue({
       id: 7,
       tipoUsuario: 'funcionario',
