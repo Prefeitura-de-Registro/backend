@@ -16,7 +16,7 @@ export function requireFuncionario(
     throw new AppError('Usuário não autenticado', 401);
   }
 
-  if (request.user.tipoUsuario !== 'funcionario' || 'gestor') {
+  if (request.user.tipoUsuario !== 'funcionario' && request.user.tipoUsuario !== 'gestor') {
     throw new AppError('Acesso restrito a funcionários', 403);
   }
 
