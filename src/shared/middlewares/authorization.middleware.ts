@@ -2,6 +2,23 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../errors/app-error.js';
 
 /**
+ * Responsável por responder "esse usuário é autenticado?".
+ *
+ * Usado nas rotas de munícipes (criação, busca de tickets, etc)
+ * Munícipes, funcionários e gestores PASSAM. Anônimos NÃO passam.
+ */
+export function requireAutenticado(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
+  if (!request.user || request.user.tipoUsuario === 'anonimo') {
+    throw new AppError('Usuário não autenticado', 401);
+  }
+  next();
+}
+
+/**
  * Responsável por responder "esse usuário é funcionário?".
  *
  * Usado nas rotas de operadores (manipulação de tickets, visualização de mapas,
