@@ -2,16 +2,19 @@ import type { Request, Response } from 'express';
 import { generateToken } from '../../shared/utils/jwt.js';
 import { userService } from './user.service.js';
 import type {
+  CreateFuncionarioBodyDTO,
   CreateUserDTO,
+  GetManyFuncionariosQueryDTO,
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
+  UpdateMeBodyDTO,
   UserIdParamsDTO,
 } from './dtos/user.dto.js';
 
 export class UserController {
   register = async (request: Request, response: Response) => {
-    const data = request.body as CreateUserDTO;
+    const data = request.validated?.body as CreateUserDTO;
 
     const usuario = await userService.create(data);
 
@@ -32,7 +35,7 @@ export class UserController {
   };
 
   login = async (request: Request, response: Response) => {
-    const data = request.body as LoginUserDTO;
+    const data = request.validated?.body as LoginUserDTO;
 
     const usuario = await userService.login(data);
 
@@ -58,9 +61,17 @@ export class UserController {
 
   update = async (request: Request, response: Response) => {
     const { id } = request.validated?.params as UserIdParamsDTO;
-    const data = request.body as UpdateUserBodyDTO;
+    const data = request.validated?.body as UpdateUserBodyDTO;
 
     const usuario = await userService.update(id, data);
+
+    response.status(200).json(usuario);
+  };
+
+  updateMe = async (request: Request, response: Response) => {
+    const data = request.validated?.body as UpdateMeBodyDTO;
+
+    const usuario = await userService.updateMe(request.user!.id, data);
 
     response.status(200).json(usuario);
   };
@@ -80,5 +91,21 @@ export class UserController {
     const vinculos = await userService.setDepartamentos(id, data);
 
     response.status(200).json(vinculos);
+  };
+
+  getManyFuncionarios = async (request: Request, response: Response) => {
+    const query = request.validated?.query as GetManyFuncionariosQueryDTO;
+
+    const result = await userService.getManyFuncionarios(query);
+
+    response.status(200).json(result);
+  };
+
+  createFuncionario = async (request: Request, response: Response) => {
+    const body = request.validated?.body as CreateFuncionarioBodyDTO;
+
+    const result = await userService.createFuncionario(body);
+
+    response.status(201).json(result);
   };
 }

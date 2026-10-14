@@ -3,14 +3,19 @@ import { asyncHandler } from '../../shared/utils/async-handler.js';
 import {
   validateBody,
   validateParams,
+  validateQuery,
 } from '../../shared/middlewares/validate.middleware.js';
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
-import { requireFuncionario } from '../../shared/middlewares/authorization.middleware.js';
+import { requireGestor } from '../../shared/middlewares/authorization.middleware.js';
+import { requireAutenticado } from '../../shared/middlewares/authorization.middleware.js';
 import {
+  createFuncionarioBodySchema,
   createUserSchema,
+  getManyFuncionariosQuerySchema,
   loginUserSchema,
   setDepartamentosBodySchema,
   updateUserBodySchema,
+  updateMeBodySchema,
   userIdParamsSchema,
 } from './schemas/user.schema.js';
 import { UserController } from './user.controller.js';
@@ -18,6 +23,7 @@ import { UserController } from './user.controller.js';
 const usersRoutes = Router();
 const usersController = new UserController();
 
+// rotas públicas
 usersRoutes.post(
   '/register',
   validateBody(createUserSchema),
@@ -28,15 +34,27 @@ usersRoutes.post(
   validateBody(loginUserSchema),
   asyncHandler(usersController.login),
 );
-usersRoutes.get('/me', authMiddleware, asyncHandler(usersController.me));
 
-// Gestão de usuários. Ainda não existe um tipo "admin" no banco (ver Issue #11),
-// então por ora exigimos apenas estar autenticado como funcionário. Quando o
-// tipo admin existir, troque requireFuncionario por um requireAdmin aqui.
+// rotas autenticadas
+usersRoutes.use(authMiddleware);
+usersRoutes.get('/me', asyncHandler(usersController.me));
+usersRoutes.patch(
+  '/me',
+  requireAutenticado,
+  validateBody(updateMeBodySchema),
+  asyncHandler(usersController.updateMe),
+);
+
+// rotas de gestor
+usersRoutes.use(requireGestor);
+usersRoutes.post(
+  '/',
+  validateBody(createFuncionarioBodySchema),
+  asyncHandler(usersController.createFuncionario),
+);
+
 usersRoutes.patch(
   '/:id',
-  authMiddleware,
-  requireFuncionario,
   validateParams(userIdParamsSchema),
   validateBody(updateUserBodySchema),
   asyncHandler(usersController.update),
@@ -44,19 +62,21 @@ usersRoutes.patch(
 
 usersRoutes.delete(
   '/:id',
-  authMiddleware,
-  requireFuncionario,
   validateParams(userIdParamsSchema),
   asyncHandler(usersController.remove),
 );
 
 usersRoutes.put(
   '/:id/departamentos',
-  authMiddleware,
-  requireFuncionario,
   validateParams(userIdParamsSchema),
   validateBody(setDepartamentosBodySchema),
   asyncHandler(usersController.setDepartamentos),
+);
+
+usersRoutes.get(
+  '/',
+  validateQuery(getManyFuncionariosQuerySchema),
+  asyncHandler(usersController.getManyFuncionarios),
 );
 
 export { usersRoutes };
