@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import type {
-  GetManyTicketDTO,
   CreateSolicitacaoBodyDTO,
   GetManyTicketsQueryDTO,
   TicketIdParamsDTO,
