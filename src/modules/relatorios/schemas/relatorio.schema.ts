@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { dataSchema, validarPeriodo } from '../../../shared/schemas/periodo.schema.js';
+import {
+  dataSchema,
+  validarPeriodo,
+} from '../../../shared/schemas/periodo.schema.js';
 import { idOpcionalSchema } from '../../../shared/schemas/query.schema.js';
 
 export const relatorioQuerySchema = z

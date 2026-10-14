@@ -59,11 +59,11 @@ export async function assertFuncionarioPertenceAoDepartamento(
 
 // verifica IDs dos departamentos ativos
 export async function getActiveDepartamentoIds(
-  departamentoIds: number[]
+  departamentoIds: number[],
 ): Promise<number[]> {
   const idsUnicos = [...new Set(departamentoIds)];
 
-  if(idsUnicos.length === 0){
+  if (idsUnicos.length === 0) {
     return [];
   }
 
@@ -72,5 +72,5 @@ export async function getActiveDepartamentoIds(
     select: { id: true },
   });
 
-  return departamentos.map((departamento: {id: number}) => departamento.id);
+  return departamentos.map((departamento: { id: number }) => departamento.id);
 }

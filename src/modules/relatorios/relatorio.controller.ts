@@ -14,7 +14,10 @@ class RelatorioController {
   getVolumeSemanal = async (request: Request, response: Response) => {
     const query = request.validated?.query as RelatorioQueryDTO;
 
-    const result = await relatorioService.getVolumeSemanal(request.user!, query);
+    const result = await relatorioService.getVolumeSemanal(
+      request.user!,
+      query,
+    );
 
     response.status(200).json(result);
   };
@@ -22,15 +25,24 @@ class RelatorioController {
   getTicketsPorCategoria = async (request: Request, response: Response) => {
     const query = request.validated?.query as RelatorioQueryDTO;
 
-    const result = await relatorioService.getTicketsPorCategoria(request.user!, query);
+    const result = await relatorioService.getTicketsPorCategoria(
+      request.user!,
+      query,
+    );
 
     response.status(200).json(result);
   };
 
-  getDesempenhoPorDepartamento = async (request: Request, response: Response) => {
+  getDesempenhoPorDepartamento = async (
+    request: Request,
+    response: Response,
+  ) => {
     const query = request.validated?.query as RelatorioQueryDTO;
 
-    const result = await relatorioService.getDesempenhoPorDepartamento(request.user!, query);
+    const result = await relatorioService.getDesempenhoPorDepartamento(
+      request.user!,
+      query,
+    );
 
     response.status(200).json(result);
   };

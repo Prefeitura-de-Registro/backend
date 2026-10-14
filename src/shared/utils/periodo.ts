@@ -12,7 +12,9 @@ function meiaNoiteEmBrasilia(data: string): Date {
 
 function hojeEmBrasilia(): string {
   // 'en-CA' formata como AAAA-MM-DD
-  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_HORARIO }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_HORARIO }).format(
+    new Date(),
+  );
 }
 
 function somarDias(data: string, dias: number): string {
@@ -22,7 +24,10 @@ function somarDias(data: string, dias: number): string {
 }
 
 // fim exclusivo = amanhã, para incluir o dia de hoje
-export function periodoUltimosDias(dias: number): { inicio: string; fim: string } {
+export function periodoUltimosDias(dias: number): {
+  inicio: string;
+  fim: string;
+} {
   const fim = somarDias(hojeEmBrasilia(), 1);
   return { inicio: somarDias(fim, -dias), fim };
 }

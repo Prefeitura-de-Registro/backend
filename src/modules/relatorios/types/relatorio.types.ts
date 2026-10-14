@@ -44,7 +44,8 @@ export interface TicketsPorCategoriaResposta {
   categorias: { idCategoria: number; nome: string; quantidade: number }[];
 }
 
-export type StatusGeral = 'Excelente' | 'Bom' | 'Regular' | 'Crítico' | 'Sem dados';
+export type StatusGeral =
+  'Excelente' | 'Bom' | 'Regular' | 'Crítico' | 'Sem dados';
 
 export interface DesempenhoDepartamento {
   idDepartamento: number;

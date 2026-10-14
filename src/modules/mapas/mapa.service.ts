@@ -17,8 +17,21 @@ import type {
 } from './types/mapa.types.js';
 
 class MapaService {
-  async getTicketsMap(user: TokenPayload, query: MapaTicketsQueryDTO): Promise<MapaTicketsResposta> {
-    const { inicio, fim, status, idDepartamento, busca, lat, lng, raioKm, limite } = query;
+  async getTicketsMap(
+    user: TokenPayload,
+    query: MapaTicketsQueryDTO,
+  ): Promise<MapaTicketsResposta> {
+    const {
+      inicio,
+      fim,
+      status,
+      idDepartamento,
+      busca,
+      lat,
+      lng,
+      raioKm,
+      limite,
+    } = query;
     const periodo = montarPeriodo(inicio, fim);
 
     // Departamentos que o usuário pode ver (ou só o pedido, se tiver acesso a ele)
@@ -54,13 +67,17 @@ class MapaService {
     }
     if (pontoUsuario && raioKm !== undefined) {
       // Com geography, a distância é em metros
-      condicoes.push(Prisma.sql`ST_DWithin(t.geom, ${pontoUsuario}, ${raioKm * 1000}::double precision)`);
+      condicoes.push(
+        Prisma.sql`ST_DWithin(t.geom, ${pontoUsuario}, ${raioKm * 1000}::double precision)`,
+      );
     }
 
     const distancia = pontoUsuario
       ? Prisma.sql`ST_Distance(t.geom, ${pontoUsuario})`
       : Prisma.sql`NULL::double precision`;
-    const ordem = pontoUsuario ? Prisma.sql`distancia_metros ASC` : Prisma.sql`t.created_at DESC`;
+    const ordem = pontoUsuario
+      ? Prisma.sql`distancia_metros ASC`
+      : Prisma.sql`t.created_at DESC`;
 
     // limite + 1 para saber se havia mais tickets do que o retornado
     const linhas = await prisma.$queryRaw<ConsultaMapaTicket[]>`
@@ -95,7 +112,10 @@ class MapaService {
       departamento: { id: linha.id_departamento, nome: linha.departamento },
       lat: linha.lat,
       lng: linha.lng,
-      distanciaMetros: linha.distancia_metros === null ? null : Math.round(linha.distancia_metros),
+      distanciaMetros:
+        linha.distancia_metros === null
+          ? null
+          : Math.round(linha.distancia_metros),
     }));
 
     const limites = this.calcularLimites(tickets);
@@ -112,8 +132,11 @@ class MapaService {
   private filtroBusca(busca: string): Prisma.Sql {
     // Escapa os curingas do LIKE para que '%' e '_' digitados sejam literais
     const termo = `%${busca.replace(/[\\%_]/g, '\\$&')}%`;
-    const protocolo = /^#?\d{1,9}$/.test(busca) ? Number(busca.replace('#', '')) : null;
-    const filtroProtocolo = protocolo !== null ? Prisma.sql`OR t.id = ${protocolo}` : Prisma.empty;
+    const protocolo = /^#?\d{1,9}$/.test(busca)
+      ? Number(busca.replace('#', ''))
+      : null;
+    const filtroProtocolo =
+      protocolo !== null ? Prisma.sql`OR t.id = ${protocolo}` : Prisma.empty;
 
     return Prisma.sql`(
       t.descricao ILIKE ${termo}

@@ -29,7 +29,11 @@ export function validarPeriodo(
   const { inicio, fim } = query;
 
   if ((inicio === undefined) !== (fim === undefined)) {
-    ctx.addIssue({ code: 'custom', message: 'Informe inicio e fim juntos', path: ['fim'] });
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Informe inicio e fim juntos',
+      path: ['fim'],
+    });
     return;
   }
 

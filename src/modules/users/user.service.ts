@@ -30,16 +30,16 @@ const funcionarioSummarySelect = {
   // matricula: true,
   // cargo: true,
   usuarioDepartamentos: {
-    // retorna o nome dos departamentos 
+    // retorna o nome dos departamentos
     select: {
       departamento: {
         select: {
           id: true,
           nome: true,
-          sigla: true
-        }
-      }
-    }
+          sigla: true,
+        },
+      },
+    },
   },
   ativo: true,
   createdAt: true,
@@ -50,7 +50,9 @@ const funcionarioSummarySelect = {
 } satisfies Prisma.UserSelect;
 
 // tipa retorno puro em getManyFuncionarios
-type FuncionarioSelectOriginal = Prisma.UserGetPayload<{ select: typeof funcionarioSummarySelect }>
+type FuncionarioSelectOriginal = Prisma.UserGetPayload<{
+  select: typeof funcionarioSummarySelect;
+}>;
 
 // mapeia retorno formatado em getManyFuncionarios
 function toGetManyFuncionariosResponse(funcionario: FuncionarioSelectOriginal) {
@@ -58,8 +60,8 @@ function toGetManyFuncionariosResponse(funcionario: FuncionarioSelectOriginal) {
   return {
     ...dados,
     departamentos: usuarioDepartamentos.map(({ departamento }) => departamento),
-    totalTickets: _count.ticketsResponsaveis
-  }
+    totalTickets: _count.ticketsResponsaveis,
+  };
 }
 
 class UserService {
@@ -249,15 +251,14 @@ class UserService {
 
   // consulta funcionários por nome, ou retorna todos
   async getManyFuncionarios(query: GetManyFuncionariosQueryDTO) {
-
     // busca APENAS funcionários
     const where: Prisma.UserWhereInput = {
       tipoUsuario: 'funcionario',
-    }
+    };
 
     // inclui busca por nome, caso solicitado
     if (query.busca) {
-      where.name = { contains: query.busca, mode: 'insensitive' }
+      where.name = { contains: query.busca, mode: 'insensitive' };
     }
 
     const [data, total] = await prisma.$transaction([
@@ -268,7 +269,7 @@ class UserService {
         take: query.limit,
         orderBy: [{ name: 'desc' }],
       }),
-      prisma.user.count({ where })
+      prisma.user.count({ where }),
     ]);
 
     return {
@@ -278,8 +279,8 @@ class UserService {
         limit: query.limit,
         total,
         totalPages: Math.ceil(total / query.limit),
-      }
-    }
+      },
+    };
   }
 
   // cadastra funcionários/gestores vinculando-os aos departamentos
@@ -293,8 +294,9 @@ class UserService {
     const departamentoIds = [...new Set(data.departamentoIds)];
     const ativos = await getActiveDepartamentoIds(departamentoIds);
     const invalidos = departamentoIds.filter((id) => !ativos.includes(id));
-    const vinculos = departamentoIds.map((idDepartamento) => ({ idDepartamento }));
-
+    const vinculos = departamentoIds.map((idDepartamento) => ({
+      idDepartamento,
+    }));
 
     if (invalidos.length > 0) {
       throw new AppError(
@@ -321,7 +323,7 @@ class UserService {
           usuarioDepartamentos: {
             deleteMany: {},
             createMany: { data: vinculos },
-          }
+          },
         },
         select: {
           id: true,

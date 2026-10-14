@@ -10,6 +10,10 @@ const mapaRoutes = Router();
 
 mapaRoutes.use(authMiddleware, requireFuncionario);
 
-mapaRoutes.get('/', validateQuery(mapaTicketsQuerySchema), asyncHandler(mapaController.getTicketsMap));
+mapaRoutes.get(
+  '/',
+  validateQuery(mapaTicketsQuerySchema),
+  asyncHandler(mapaController.getTicketsMap),
+);
 
 export { mapaRoutes };

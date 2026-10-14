@@ -99,7 +99,7 @@ export class UserController {
     const result = await userService.getManyFuncionarios(query);
 
     response.status(200).json(result);
-  }
+  };
 
   createFuncionario = async (request: Request, response: Response) => {
     const body = request.validated?.body as CreateFuncionarioBodyDTO;
@@ -107,5 +107,5 @@ export class UserController {
     const result = await userService.createFuncionario(body);
 
     response.status(201).json(result);
-  }
+  };
 }

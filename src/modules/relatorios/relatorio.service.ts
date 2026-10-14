@@ -32,7 +32,10 @@ const CTE_RESOLUCAO = Prisma.sql`
   )`;
 
 class RelatorioService {
-  async getIndicadores(user: TokenPayload, query: RelatorioQueryDTO): Promise<IndicadoresResposta> {
+  async getIndicadores(
+    user: TokenPayload,
+    query: RelatorioQueryDTO,
+  ): Promise<IndicadoresResposta> {
     const { periodo, escopo } = await this.prepararConsulta(user, query);
 
     const [ticketsTotais, ticketsResolvidos, temposTicket] = await Promise.all([
@@ -44,7 +47,10 @@ class RelatorioService {
     return { ticketsTotais, ticketsResolvidos, temposTicket };
   }
 
-  async getVolumeSemanal(user: TokenPayload, query: RelatorioQueryDTO): Promise<VolumeSemana[]> {
+  async getVolumeSemanal(
+    user: TokenPayload,
+    query: RelatorioQueryDTO,
+  ): Promise<VolumeSemana[]> {
     const { periodo, escopo } = await this.prepararConsulta(user, query);
     return this.calcularVolumeTickets(periodo, escopo);
   }
@@ -82,7 +88,10 @@ class RelatorioService {
   }
 
   // Tickets criados no período, dentro do escopo, sem os 'fechado'
-  private whereTicketsDoPeriodo(periodo: Periodo, escopo: DepartmentScope): Prisma.TicketWhereInput {
+  private whereTicketsDoPeriodo(
+    periodo: Periodo,
+    escopo: DepartmentScope,
+  ): Prisma.TicketWhereInput {
     return {
       createdAt: { gte: periodo.inicio, lt: periodo.fim },
       idDepartamento: escopo === 'all' ? undefined : { in: escopo },
@@ -90,13 +99,24 @@ class RelatorioService {
     };
   }
 
-  private async contarTicketsTotais(periodo: Periodo, escopo: DepartmentScope): Promise<number> {
-    return prisma.ticket.count({ where: this.whereTicketsDoPeriodo(periodo, escopo) });
+  private async contarTicketsTotais(
+    periodo: Periodo,
+    escopo: DepartmentScope,
+  ): Promise<number> {
+    return prisma.ticket.count({
+      where: this.whereTicketsDoPeriodo(periodo, escopo),
+    });
   }
 
-  private async contarTicketsResolvidos(periodo: Periodo, escopo: DepartmentScope): Promise<number> {
+  private async contarTicketsResolvidos(
+    periodo: Periodo,
+    escopo: DepartmentScope,
+  ): Promise<number> {
     return prisma.ticket.count({
-      where: { ...this.whereTicketsDoPeriodo(periodo, escopo), status: TicketStatus.resolvido },
+      where: {
+        ...this.whereTicketsDoPeriodo(periodo, escopo),
+        status: TicketStatus.resolvido,
+      },
     });
   }
 
@@ -105,7 +125,9 @@ class RelatorioService {
     escopo: DepartmentScope,
   ): Promise<IndicadoresResposta['temposTicket']> {
     const filtroDepartamento =
-      escopo === 'all' ? Prisma.empty : Prisma.sql`AND t.id_departamento = ANY(${escopo}::int[])`;
+      escopo === 'all'
+        ? Prisma.empty
+        : Prisma.sql`AND t.id_departamento = ANY(${escopo}::int[])`;
 
     const [tempos] = await prisma.$queryRaw<ConsultaTemposMedios[]>`
       WITH tickets_periodo AS (
@@ -135,13 +157,20 @@ class RelatorioService {
 
     return {
       resolucaoMinutos: decimalParaMinutos(tempos.media_resolucao_minutos),
-      primeiraRespostaMinutos: decimalParaMinutos(tempos.media_primeira_resposta_minutos),
+      primeiraRespostaMinutos: decimalParaMinutos(
+        tempos.media_primeira_resposta_minutos,
+      ),
     };
   }
 
-  private async calcularVolumeTickets(periodo: Periodo, escopo: DepartmentScope): Promise<VolumeSemana[]> {
+  private async calcularVolumeTickets(
+    periodo: Periodo,
+    escopo: DepartmentScope,
+  ): Promise<VolumeSemana[]> {
     const filtroDepartamento =
-      escopo === 'all' ? Prisma.empty : Prisma.sql`AND t.id_departamento = ANY(${escopo}::int[])`;
+      escopo === 'all'
+        ? Prisma.empty
+        : Prisma.sql`AND t.id_departamento = ANY(${escopo}::int[])`;
 
     const volume = await prisma.$queryRaw<ConsultaVolumeSemanal[]>`
       WITH semanas AS (
@@ -206,7 +235,9 @@ class RelatorioService {
       select: { id: true, nome: true },
     });
 
-    const nomePorId = new Map(categorias.map((categoria) => [categoria.id, categoria.nome]));
+    const nomePorId = new Map(
+      categorias.map((categoria) => [categoria.id, categoria.nome]),
+    );
 
     return {
       categorias: grupos.map((grupo) => ({
@@ -222,7 +253,9 @@ class RelatorioService {
     escopo: DepartmentScope,
   ): Promise<DesempenhoDepartamento[]> {
     const filtroDepartamento =
-      escopo === 'all' ? Prisma.empty : Prisma.sql`AND d.id = ANY(${escopo}::int[])`;
+      escopo === 'all'
+        ? Prisma.empty
+        : Prisma.sql`AND d.id = ANY(${escopo}::int[])`;
 
     const linhas = await prisma.$queryRaw<ConsultaDesempenhoDepartamento[]>`
       WITH tickets_periodo AS (
@@ -273,9 +306,14 @@ class RelatorioService {
         secretaria: linha.secretaria,
         ticketsTotais: Number(linha.tickets_totais),
         ticketsResolvidos,
-        tempoMedioResolucaoMinutos: decimalParaMinutos(linha.media_resolucao_minutos),
+        tempoMedioResolucaoMinutos: decimalParaMinutos(
+          linha.media_resolucao_minutos,
+        ),
         resolvidosNoPrazo,
-        statusGeral: classificarDesempenho(resolvidosNoPrazo, ticketsResolvidos),
+        statusGeral: classificarDesempenho(
+          resolvidosNoPrazo,
+          ticketsResolvidos,
+        ),
       };
     });
   }

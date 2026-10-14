@@ -36,7 +36,10 @@ export function requireFuncionario(
 ): void {
   assertAutenticado(request);
 
-  if (request.user!.tipoUsuario !== 'funcionario' && request.user!.tipoUsuario !== 'gestor') {
+  if (
+    request.user!.tipoUsuario !== 'funcionario' &&
+    request.user!.tipoUsuario !== 'gestor'
+  ) {
     throw new AppError('Acesso restrito a funcionários', 403);
   }
 

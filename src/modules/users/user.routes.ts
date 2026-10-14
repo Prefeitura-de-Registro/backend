@@ -50,8 +50,8 @@ usersRoutes.use(requireGestor);
 usersRoutes.post(
   '/',
   validateBody(createFuncionarioBodySchema),
-  asyncHandler(usersController.createFuncionario)
-)
+  asyncHandler(usersController.createFuncionario),
+);
 
 usersRoutes.patch(
   '/:id',
@@ -77,6 +77,6 @@ usersRoutes.get(
   '/',
   validateQuery(getManyFuncionariosQuerySchema),
   asyncHandler(usersController.getManyFuncionarios),
-)
+);
 
 export { usersRoutes };

@@ -11,9 +11,25 @@ const relatorioRoutes = Router();
 // rotas de gestor
 relatorioRoutes.use(authMiddleware, requireGestor);
 
-relatorioRoutes.get('/indicadores', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getIndicadores));
-relatorioRoutes.get('/volume', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getVolumeSemanal));
-relatorioRoutes.get('/categorias', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getTicketsPorCategoria));
-relatorioRoutes.get('/departamentos', validateQuery(relatorioQuerySchema), asyncHandler(relatorioController.getDesempenhoPorDepartamento));
+relatorioRoutes.get(
+  '/indicadores',
+  validateQuery(relatorioQuerySchema),
+  asyncHandler(relatorioController.getIndicadores),
+);
+relatorioRoutes.get(
+  '/volume',
+  validateQuery(relatorioQuerySchema),
+  asyncHandler(relatorioController.getVolumeSemanal),
+);
+relatorioRoutes.get(
+  '/categorias',
+  validateQuery(relatorioQuerySchema),
+  asyncHandler(relatorioController.getTicketsPorCategoria),
+);
+relatorioRoutes.get(
+  '/departamentos',
+  validateQuery(relatorioQuerySchema),
+  asyncHandler(relatorioController.getDesempenhoPorDepartamento),
+);
 
 export { relatorioRoutes };

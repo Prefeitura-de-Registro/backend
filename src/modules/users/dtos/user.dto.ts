@@ -25,8 +25,14 @@ export type UpdateUserBodyDTO = z.infer<typeof updateUserBodySchema>;
 
 export type UpdateMeBodyDTO = z.infer<typeof updateMeBodySchema>;
 
-export type SetDepartamentosBodyDTO = z.infer<typeof setDepartamentosBodySchema>;
+export type SetDepartamentosBodyDTO = z.infer<
+  typeof setDepartamentosBodySchema
+>;
 
-export type GetManyFuncionariosQueryDTO = z.infer<typeof getManyFuncionariosQuerySchema>;
+export type GetManyFuncionariosQueryDTO = z.infer<
+  typeof getManyFuncionariosQuerySchema
+>;
 
-export type CreateFuncionarioBodyDTO = z.infer<typeof createFuncionarioBodySchema>;
+export type CreateFuncionarioBodyDTO = z.infer<
+  typeof createFuncionarioBodySchema
+>;

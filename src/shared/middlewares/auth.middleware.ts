@@ -47,7 +47,13 @@ export async function authMiddleware(
     // confere dados no banco
     const usuario = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, tipoUsuario: true, ativo: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tipoUsuario: true,
+        ativo: true,
+      },
     });
 
     if (!usuario || !usuario.ativo) {
@@ -64,5 +70,4 @@ export async function authMiddleware(
   } catch (error) {
     next(error);
   }
-
 }
