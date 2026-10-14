@@ -1,6 +1,13 @@
 import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../errors/app-error.js';
 
+// Anônimo (sem header Authorization) não está autenticado: 401, não 403
+function assertAutenticado(request: Request): void {
+  if (!request.user || request.user.tipoUsuario === 'anonimo') {
+    throw new AppError('Usuário não autenticado', 401);
+  }
+}
+
 /**
  * Responsável por responder "esse usuário é autenticado?".
  *
@@ -12,9 +19,7 @@ export function requireAutenticado(
   _response: Response,
   next: NextFunction,
 ): void {
-  if (!request.user || request.user.tipoUsuario === 'anonimo') {
-    throw new AppError('Usuário não autenticado', 401);
-  }
+  assertAutenticado(request);
   next();
 }
 
@@ -29,11 +34,9 @@ export function requireFuncionario(
   _response: Response,
   next: NextFunction,
 ): void {
-  if (!request.user) {
-    throw new AppError('Usuário não autenticado', 401);
-  }
+  assertAutenticado(request);
 
-  if (request.user.tipoUsuario !== 'funcionario' && request.user.tipoUsuario !== 'gestor') {
+  if (request.user!.tipoUsuario !== 'funcionario' && request.user!.tipoUsuario !== 'gestor') {
     throw new AppError('Acesso restrito a funcionários', 403);
   }
 
@@ -51,11 +54,9 @@ export function requireGestor(
   _response: Response,
   next: NextFunction,
 ): void {
-  if (!request.user) {
-    throw new AppError('Usuário não autenticado', 401);
-  }
+  assertAutenticado(request);
 
-  if (request.user.tipoUsuario !== 'gestor') {
+  if (request.user!.tipoUsuario !== 'gestor') {
     throw new AppError('Acesso restrito a gestores', 403);
   }
 
