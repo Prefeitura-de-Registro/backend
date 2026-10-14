@@ -22,42 +22,47 @@ export async function authMiddleware(
   _response: Response,
   next: NextFunction,
 ) {
-  const authHeader = request.headers.authorization;
-
-  // Nenhum header enviado -> é anônimo, pois nunca iniciou sessão
-  if (!authHeader) {
-    request.user = ANONYMOUS_USER;
-    return next();
-  }
-
-  // header com formato errado
-  if (!authHeader.startsWith('Bearer ')) {
-    throw new AppError('Token não fornecido', 401);
-  }
-
-  // verifica token
-  let payload: TokenPayload;
   try {
-    payload = verifyToken(authHeader.split(' ')[1]);
-  } catch {
-    throw new AppError('Token inválido ou expirado', 401);
+    const authHeader = request.headers.authorization;
+
+    // Nenhum header enviado -> é anônimo, pois nunca iniciou sessão
+    if (!authHeader) {
+      request.user = ANONYMOUS_USER;
+      return next();
+    }
+
+    // header com formato errado
+    if (!authHeader.startsWith('Bearer ')) {
+      throw new AppError('Token não fornecido', 401);
+    }
+
+    // verifica token
+    let payload: TokenPayload;
+    try {
+      payload = verifyToken(authHeader.split(' ')[1]);
+    } catch {
+      throw new AppError('Token inválido ou expirado', 401);
+    }
+
+    // confere dados no banco
+    const usuario = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, email: true, name: true, tipoUsuario: true, ativo: true },
+    });
+
+    if (!usuario || !usuario.ativo) {
+      throw new AppError('Token inválido ou expirado', 401);
+    }
+
+    request.user = {
+      id: usuario.id,
+      email: usuario.email,
+      name: usuario.name,
+      tipoUsuario: usuario.tipoUsuario,
+    };
+    next();
+  } catch (error) {
+    next(error);
   }
 
-  // confere dados no banco
-  const usuario = await prisma.user.findUnique({
-    where: { id: payload.id },
-    select: { id: true, email: true, name: true, tipoUsuario: true, ativo: true },
-  });
-
-  if (!usuario || !usuario.ativo) {
-    throw new AppError('Token inválido ou expirado', 401);
-  }
-
-  request.user = {
-    id: usuario.id,
-    email: usuario.email,
-    name: usuario.name,
-    tipoUsuario: usuario.tipoUsuario,
-  };
-  next();
 }
