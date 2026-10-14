@@ -9,7 +9,6 @@ import {
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { ticketController } from './ticket.controller.js';
 import {
-  getManyTicketSchema,
   createSolicitacaoBodySchema,
   getManyTicketsQuerySchema,
   ticketIdParamsSchema,

@@ -73,18 +73,18 @@ class UserService {
     const passwordHash = await hashPassword(data.senha);
 
     if (existente) {
-      if (existente.ativo) {
+      // Conta ativa, ou conta inativa de funcionário/gestor: o cadastro público NUNCA reativa
+      if (existente.ativo || existente.tipoUsuario !== 'municipe') {
         throw new AppError('Já existe um cadastro com esse e-mail', 409);
       }
 
-      // Usuário tinha passado por soft delete: reativa o mesmo registro em
-      // vez de criar um novo, preservando o histórico já vinculado a ele
-      // (tickets, TicketHistorico, UsuarioDepartamento etc.).
+      // Munícipe tinha passado por soft delete: reativa o mesmo registro
       return prisma.user.update({
         where: { id: existente.id },
         data: {
           name: data.nome,
           passwordHash,
+          tipoUsuario: 'municipe',
           ativo: true,
         },
         select: {
@@ -102,7 +102,7 @@ class UserService {
         name: data.nome,
         email: data.email,
         passwordHash,
-        // tipoUsuario: data.tipoUsuario ?? 'municipe',
+        tipoUsuario: 'municipe',
       },
       select: {
         id: true,
@@ -176,24 +176,24 @@ class UserService {
   }
 
   async updateMe(id: number, data: UpdateMeBodyDTO) {
-  const { senhaAtual, ...campos } = data;
+    const { senhaAtual, ...campos } = data;
 
-  if (campos.email !== undefined || campos.senha !== undefined) {
-    const usuario = await this.findUserOrThrow(id);
+    if (campos.email !== undefined || campos.senha !== undefined) {
+      const usuario = await this.findUserOrThrow(id);
 
-    const senhaValida =
-      usuario.passwordHash !== null &&
-      (await comparePassword(senhaAtual!, usuario.passwordHash));
+      const senhaValida =
+        usuario.passwordHash !== null &&
+        (await comparePassword(senhaAtual!, usuario.passwordHash));
 
-    if (!senhaValida) {
-      // 400 e não 401, para o front não confundir com sessão expirada e deslogar
-      throw new AppError('Senha atual incorreta', 400);
+      if (!senhaValida) {
+        // 400 e não 401, para o front não confundir com sessão expirada e deslogar
+        throw new AppError('Senha atual incorreta', 400);
+      }
     }
-  }
 
-  // campos não tem tipoUsuario, então não há como mudar o próprio papel
-  return this.update(id, campos);
-}
+    // campos não tem tipoUsuario, então não há como mudar o próprio papel
+    return this.update(id, campos);
+  }
 
   async softDelete(id: number) {
     const usuario = await this.findUserOrThrow(id);
@@ -362,6 +362,10 @@ class UserService {
 
     if (!usuario) {
       throw new AppError('Usuário não encontrado', 404);
+    }
+
+    if (usuario.reservado) {
+      throw new AppError('Este usuário é reservado pelo sistema', 403);
     }
 
     return usuario;
