@@ -4,7 +4,7 @@
  * - Retorno booleano
  */
 export function isValidCPF(cpf: string): boolean {
-  const digits = cpf.replace(/\D/g, "");
+  const digits = cpf.replace(/\D/g, '');
 
   if (digits.length !== 11) return false;
 
@@ -26,8 +26,5 @@ export function isValidCPF(cpf: string): boolean {
   const firstDigit = calculateDigit(9);
   const secondDigit = calculateDigit(10);
 
-  return (
-    firstDigit === Number(digits[9]) &&
-    secondDigit === Number(digits[10])
-  );
+  return firstDigit === Number(digits[9]) && secondDigit === Number(digits[10]);
 }
