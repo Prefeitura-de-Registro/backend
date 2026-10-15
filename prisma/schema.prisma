@@ -1,7 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  //Altera conforme está sua estrutura de pastas local
-  output   = "../../backend/node_modules/.prisma/client"
 }
 
 datasource db {
