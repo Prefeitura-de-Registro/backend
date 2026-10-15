@@ -19,6 +19,8 @@ const userSummarySelect = {
   name: true,
   email: true,
   tipoUsuario: true,
+  matricula: true,
+  cargo: true,
   ativo: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
@@ -27,8 +29,8 @@ const userSummarySelect = {
 const funcionarioSummarySelect = {
   id: true,
   name: true,
-  // matricula: true,
-  // cargo: true,
+  matricula: true,
+  cargo: true,
   usuarioDepartamentos: {
     // retorna o nome dos departamentos
     select: {
@@ -72,6 +74,9 @@ class UserService {
       },
     });
 
+    // CPF não pode pertencer a outra conta (a própria conta, se reativada, pode)
+    await this.assertDisponivel({ cpf: data.cpf }, existente?.id);
+
     const passwordHash = await hashPassword(data.senha);
 
     if (existente) {
@@ -85,6 +90,7 @@ class UserService {
         where: { id: existente.id },
         data: {
           name: data.nome,
+          cpf: data.cpf,
           passwordHash,
           tipoUsuario: 'municipe',
           ativo: true,
@@ -103,6 +109,7 @@ class UserService {
       data: {
         name: data.nome,
         email: data.email,
+        cpf: data.cpf,
         passwordHash,
         tipoUsuario: 'municipe',
       },
@@ -152,6 +159,10 @@ class UserService {
       }
     }
 
+    if (data.matricula !== undefined) {
+      await this.assertDisponivel({ matricula: data.matricula }, id);
+    }
+
     const updateData: Prisma.UserUpdateInput = {};
 
     if (data.nome !== undefined) {
@@ -160,6 +171,14 @@ class UserService {
 
     if (data.email !== undefined) {
       updateData.email = data.email;
+    }
+
+    if (data.cargo !== undefined) {
+      updateData.cargo = data.cargo;
+    }
+
+    if (data.matricula !== undefined) {
+      updateData.matricula = data.matricula;
     }
 
     if (data.tipoUsuario !== undefined) {
@@ -249,16 +268,19 @@ class UserService {
     });
   }
 
-  // consulta funcionários por nome, ou retorna todos
+  // consulta funcionários por nome ou matrícula, ou retorna todos
   async getManyFuncionarios(query: GetManyFuncionariosQueryDTO) {
     // busca APENAS funcionários
     const where: Prisma.UserWhereInput = {
       tipoUsuario: 'funcionario',
     };
 
-    // inclui busca por nome, caso solicitado
+    // inclui busca por nome ou matrícula, caso solicitado
     if (query.busca) {
-      where.name = { contains: query.busca, mode: 'insensitive' };
+      where.OR = [
+        { name: { contains: query.busca, mode: 'insensitive' } },
+        { matricula: { contains: query.busca } },
+      ];
     }
 
     const [data, total] = await prisma.$transaction([
@@ -290,6 +312,11 @@ class UserService {
         email: data.email,
       },
     });
+
+    // CPF e matrícula não podem pertencer a outra conta (a própria conta, se reativada, pode)
+    await this.assertDisponivel({ cpf: data.cpf }, existente?.id);
+    await this.assertDisponivel({ matricula: data.matricula }, existente?.id);
+
     const passwordHash = await hashPassword(data.senha);
     const departamentoIds = [...new Set(data.departamentoIds)];
     const ativos = await getActiveDepartamentoIds(departamentoIds);
@@ -318,6 +345,9 @@ class UserService {
         data: {
           name: data.nome,
           passwordHash,
+          cpf: data.cpf,
+          cargo: data.cargo,
+          matricula: data.matricula,
           tipoUsuario: data.tipoUsuario ?? 'funcionario',
           ativo: data.status,
           usuarioDepartamentos: {
@@ -340,6 +370,9 @@ class UserService {
         name: data.nome,
         email: data.email,
         passwordHash,
+        cpf: data.cpf,
+        cargo: data.cargo,
+        matricula: data.matricula,
         tipoUsuario: data.tipoUsuario ?? 'funcionario',
         ativo: data.status,
         usuarioDepartamentos: {
@@ -371,6 +404,23 @@ class UserService {
     }
 
     return usuario;
+  }
+
+  // helper de unicidade: CPF e matrícula são únicos no banco
+  // ignorarId permite que o próprio usuário mantenha o valor que já é dele
+  private async assertDisponivel(
+    where: { cpf: string } | { matricula: string },
+    ignorarId?: number,
+  ) {
+    const existente = await prisma.user.findUnique({
+      where,
+      select: { id: true },
+    });
+
+    if (existente && existente.id !== ignorarId) {
+      const campo = 'cpf' in where ? 'esse CPF' : 'essa matrícula';
+      throw new AppError(`Já existe um cadastro com ${campo}`, 409);
+    }
   }
 }
 

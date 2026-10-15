@@ -2,13 +2,18 @@ import { z } from 'zod';
 import { isValidCPF } from '../../../shared/utils/validate-cpf.js';
 import { paginationSchema } from '../../../shared/schemas/pagination.schema.js';
 
+// sigla da secretaria + hífen + 4 dígitos (ex.: SISP-0001), mesmo formato do banco
 const matriculaSchema = z
   .string({
     required_error: 'Matrícula é obrigatória',
     invalid_type_error: 'Matrícula deve ser enviada como texto',
   })
   .trim()
-  .regex(/^\d{5}$/, 'Matrícula deve conter exatamente 5 dígitos numéricos');
+  .toUpperCase()
+  .regex(
+    /^[A-Z]{2,10}-\d{4}$/,
+    'Matrícula deve seguir o formato SIGLA-0000 (ex.: SISP-0001)',
+  );
 
 const nomeSchema = z
   .string()
@@ -40,8 +45,7 @@ const cargoSchema = z
 // const tipoUsuarioSchema = z
 //   .enum(['municipe', 'funcionario', 'gestor']);
 
-const tipoFuncionarioSchema = z
-  .enum(['funcionario', 'gestor']);
+const tipoFuncionarioSchema = z.enum(['funcionario', 'gestor']);
 
 // cadastro de munícipes
 export const createUserSchema = z.object({
@@ -70,6 +74,7 @@ export const updateUserBodySchema = z
     email: emailSchema.optional(),
     senha: senhaSchema.optional(),
     cargo: cargoSchema.optional(),
+    matricula: matriculaSchema.optional(),
     tipoUsuario: tipoFuncionarioSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
