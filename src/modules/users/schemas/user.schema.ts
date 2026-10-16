@@ -1,69 +1,94 @@
 import { z } from 'zod';
+import { isValidCPF } from '../../../shared/utils/validate-cpf.js';
+import { paginationSchema } from '../../../shared/schemas/pagination.schema.js';
 
-/*
-    Schemas Zod validam entradas em runtime
-    Schemas Zod são aplicados no validate.middleware
-*/
+// sigla da secretaria + hífen + 4 dígitos (ex.: SISP-0001), mesmo formato do banco
+const matriculaSchema = z
+  .string({
+    required_error: 'Matrícula é obrigatória',
+    invalid_type_error: 'Matrícula deve ser enviada como texto',
+  })
+  .trim()
+  .toUpperCase()
+  .regex(
+    /^[A-Z]{2,10}-\d{4}$/,
+    'Matrícula deve seguir o formato SIGLA-0000 (ex.: SISP-0001)',
+  );
 
+const nomeSchema = z
+  .string()
+  .trim()
+  .min(3, 'O nome deve ter pelo menos 3 caracteres');
+
+const emailSchema = z
+  .string({ required_error: 'O e-mail é obrigatório' })
+  .trim()
+  .toLowerCase()
+  .email('Informe um email válido');
+
+const senhaSchema = z
+  .string()
+  .min(8, 'A senha deve ter pelo menos 8 caracteres');
+
+const cpfSchema = z
+  .string({ required_error: 'O CPF é obrigatório' })
+  .trim()
+  .regex(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/, 'CPF em formato inválido')
+  .refine(isValidCPF, 'CPF inválido')
+  .transform((cpf) => cpf.replace(/\D/g, '')); // sempre grava os 11 dígitos
+
+const cargoSchema = z
+  .string()
+  .trim()
+  .min(3, 'O cargo deve ter pelo menos 3 caracteres');
+
+// const tipoUsuarioSchema = z
+//   .enum(['municipe', 'funcionario', 'gestor']);
+
+const tipoFuncionarioSchema = z.enum(['funcionario', 'gestor']);
+
+// cadastro de munícipes
 export const createUserSchema = z.object({
-  nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
-
-  email: z.string().trim().toLowerCase().email('Informe um email válido'),
-
-  senha: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
+  nome: nomeSchema,
+  email: emailSchema,
+  senha: senhaSchema,
+  cpf: cpfSchema,
+  // não deve receber tipoUsuario, cargo ou matrícula
 });
 
+// login de usuários
 export const loginUserSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Informe um email válido'),
-
+  email: emailSchema,
   senha: z.string().min(1, 'A senha é obrigatória'),
 });
 
+// requer ID do usuário
 export const userIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+// edição de funcionários/gestores
 export const updateUserBodySchema = z
   .object({
-    nome: z
-      .string()
-      .min(3, 'O nome deve ter pelo menos 3 caracteres')
-      .optional(),
-    email: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .email('Informe um email válido')
-      .optional(),
-    senha: z
-      .string()
-      .min(8, 'A senha deve ter pelo menos 8 caracteres')
-      .optional(),
-    tipoUsuario: z.enum(['municipe', 'funcionario']).optional(),
+    nome: nomeSchema.optional(),
+    email: emailSchema.optional(),
+    senha: senhaSchema.optional(),
+    cargo: cargoSchema.optional(),
+    matricula: matriculaSchema.optional(),
+    tipoUsuario: tipoFuncionarioSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Informe ao menos um campo para atualizar',
   });
 
+// edição do próprio usuário logado
 export const updateMeBodySchema = z
   .object({
-    nome: z
-      .string()
-      .trim()
-      .min(3, 'O nome deve ter pelo menos 3 caracteres')
-      .optional(),
-    email: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .email('Informe um email válido')
-      .optional(),
-    senha: z
-      .string()
-      .min(8, 'A senha deve ter pelo menos 8 caracteres')
-      .optional(),
+    nome: nomeSchema.optional(),
+    email: emailSchema.optional(),
+    senha: senhaSchema.optional(),
     senhaAtual: z.string().min(1).optional(),
-    // sem tipoUsuario: campos desconhecidos são descartados pelo Zod
+    // não deve permitir tipoUsuario, cargo ou matrícula
   })
   .refine(
     (d) =>
@@ -81,35 +106,26 @@ export const updateMeBodySchema = z
     },
   );
 
+// edição de departamentos (exige lista completa e substitui vínculos atuais)
 export const setDepartamentosBodySchema = z.object({
-  // Lista COMPLETA dos departamentos do usuário (substitui os vínculos atuais).
   // Mande um array vazio para remover todos os vínculos.
   departamentoIds: z.array(z.coerce.number().int().positive()),
 });
 
-export const getManyFuncionariosQuerySchema = z.object({
-  // campo de busca = nome do funcionário
-  // quando não existe, retorna todos os funcionários
+// listagem de funcionários
+export const getManyFuncionariosQuerySchema = paginationSchema.extend({
   busca: z.string().trim().min(3).optional(),
-  // parâmetros de paginação
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(25).default(20),
 });
 
+// cadastro de funcionários
 export const createFuncionarioBodySchema = z.object({
-  nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
-
-  email: z.string().trim().toLowerCase().email('Informe um email válido'),
-
-  senha: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
-
-  tipoUsuario: z.enum(['municipe', 'funcionario', 'gestor']).optional(),
-
+  nome: nomeSchema,
+  email: emailSchema,
+  senha: senhaSchema,
+  cpf: cpfSchema,
+  cargo: cargoSchema,
+  matricula: matriculaSchema,
+  tipoUsuario: tipoFuncionarioSchema.default('funcionario'),
   departamentoIds: z.array(z.coerce.number().int().positive()),
-
-  status: z.boolean(),
-
-  // cargo:
-
-  // fotoPerfil:
+  status: z.boolean().default(true),
 });

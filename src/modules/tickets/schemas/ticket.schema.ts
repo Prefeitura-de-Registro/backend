@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paginationSchema } from '../../../shared/schemas/pagination.schema.js';
 
 const TICKET_STATUS_VALUES = [
   'aberto',
@@ -47,8 +48,6 @@ export const createSolicitacaoBodySchema = z.object({
   descricao: z.string().trim().min(1),
 });
 
-export const getManyTicketSchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(25).default(20),
+export const getManyTicketSchema = paginationSchema.extend({
   status: z.enum(['open', 'in_service', 'closed']).optional(),
 });

@@ -49,6 +49,8 @@ type UsuarioFake = {
   ativo: boolean;
   reservado?: boolean;
   passwordHash?: string | null;
+  cpf?: string | null;
+  matricula?: string | null;
 };
 
 let usuariosNoBanco: Map<number, UsuarioFake>;
@@ -79,6 +81,7 @@ function popularBanco() {
         ativo: true,
         reservado: false,
         passwordHash: 'hash-atual',
+        cpf: '11144477735',
       },
     ],
   ]);
@@ -92,8 +95,25 @@ function popularBanco() {
       ativo: true,
       reservado: false,
       passwordHash: 'hash-atual',
+      matricula: tipoUsuario === 'funcionario' ? 'SISP-0012' : null,
     });
   }
+}
+
+// findUnique busca por id, cpf ou matrícula (os campos @unique usados no service)
+function buscarNoBanco(where: {
+  id?: number;
+  cpf?: string;
+  matricula?: string;
+}) {
+  return (
+    [...usuariosNoBanco.values()].find(
+      (u) =>
+        (where.id !== undefined && u.id === where.id) ||
+        (where.cpf !== undefined && u.cpf === where.cpf) ||
+        (where.matricula !== undefined && u.matricula === where.matricula),
+    ) ?? null
+  );
 }
 
 function tokenFor(tipoUsuario: string, id = ID_POR_TIPO[tipoUsuario]) {
@@ -109,10 +129,13 @@ const novoUsuario = {
   nome: 'Fulano de Tal',
   email: 'fulano@teste.com',
   senha: 'senha-segura-123',
+  cpf: '529.982.247-25',
 };
 
 const novoFuncionario = {
   ...novoUsuario,
+  cargo: 'Analista Jr.',
+  matricula: 'SISP-0142',
   departamentoIds: [1],
   status: true,
 };
@@ -132,8 +155,11 @@ beforeEach(() => {
   popularBanco();
 
   prismaMock.user.findUnique.mockImplementation(
-    async ({ where }: { where: { id: number } }) =>
-      usuariosNoBanco.get(where.id) ?? null,
+    async ({
+      where,
+    }: {
+      where: { id?: number; cpf?: string; matricula?: string };
+    }) => buscarNoBanco(where),
   );
   prismaMock.user.findFirst.mockResolvedValue(null);
   prismaMock.user.create.mockImplementation(
@@ -164,6 +190,34 @@ describe('POST /api/user/register (cadastro público)', () => {
     expect(prismaMock.user.create.mock.calls[0][0].data.tipoUsuario).toBe(
       'municipe',
     );
+  });
+
+  it('grava o CPF apenas com os 11 dígitos', async () => {
+    const res = await request(app).post('/api/user/register').send(novoUsuario);
+
+    expect(res.status).toBe(201);
+    expect(prismaMock.user.create.mock.calls[0][0].data.cpf).toBe(
+      '52998224725',
+    );
+  });
+
+  it('400 para CPF inválido', async () => {
+    const res = await request(app)
+      .post('/api/user/register')
+      .send({ ...novoUsuario, cpf: '123.456.789-00' });
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('409 quando o CPF já pertence a outra conta', async () => {
+    const res = await request(app)
+      .post('/api/user/register')
+      .send({ ...novoUsuario, cpf: '111.444.777-35' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe('Já existe um cadastro com esse CPF');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
   it.each(['funcionario', 'gestor', 'anonimo'])(
@@ -300,9 +354,48 @@ describe('POST /api/user (cadastro de funcionário, somente gestor)', () => {
     const data = prismaMock.user.create.mock.calls[0][0].data;
     expect(data.tipoUsuario).toBe('funcionario');
     expect(data.ativo).toBe(true);
+    expect(data.cpf).toBe('52998224725');
+    expect(data.cargo).toBe('Analista Jr.');
+    expect(data.matricula).toBe('SISP-0142');
     expect(data.usuarioDepartamentos.createMany.data).toEqual([
       { idDepartamento: 1 },
     ]);
+  });
+
+  it.each(['0142', 'SISP0142', 'SISP-142'])(
+    '400 para matrícula fora do formato SIGLA-0000 (%s)',
+    async (matricula) => {
+      const res = await request(app)
+        .post('/api/user')
+        .set(auth('gestor'))
+        .send({ ...novoFuncionario, matricula });
+
+      expect(res.status).toBe(400);
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('grava a matrícula em maiúsculas', async () => {
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, matricula: ' sisp-0142 ' });
+
+    expect(res.status).toBe(201);
+    expect(prismaMock.user.create.mock.calls[0][0].data.matricula).toBe(
+      'SISP-0142',
+    );
+  });
+
+  it('409 quando a matrícula já pertence a outro usuário', async () => {
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, matricula: 'SISP-0012' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe('Já existe um cadastro com essa matrícula');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
   // Regra atual: o gestor pode definir o tipo (inclusive gestor). Pendente de validação do squad.
@@ -391,6 +484,8 @@ describe('GET /api/user (listagem de funcionários, somente gestor)', () => {
       {
         id: 20,
         name: 'Func Vias',
+        matricula: 'SISP-0142',
+        cargo: 'Analista Jr.',
         ativo: true,
         createdAt: new Date('2026-01-01T00:00:00Z'),
         usuarioDepartamentos: [
@@ -406,6 +501,8 @@ describe('GET /api/user (listagem de funcionários, somente gestor)', () => {
       .set(auth('gestor'));
 
     expect(res.status).toBe(200);
+    expect(res.body.data[0].matricula).toBe('SISP-0142');
+    expect(res.body.data[0].cargo).toBe('Analista Jr.');
     expect(res.body.data[0].departamentos).toEqual([
       { id: 1, nome: 'Vias', sigla: 'VIAS' },
     ]);
@@ -419,6 +516,21 @@ describe('GET /api/user (listagem de funcionários, somente gestor)', () => {
     expect(prismaMock.user.findMany.mock.calls[0][0].where.tipoUsuario).toBe(
       'funcionario',
     );
+  });
+
+  it('busca por nome ou matrícula', async () => {
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(0);
+
+    const res = await request(app)
+      .get('/api/user?busca=SISP-0142')
+      .set(auth('gestor'));
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.findMany.mock.calls[0][0].where.OR).toEqual([
+      { name: { contains: 'SISP-0142', mode: 'insensitive' } },
+      { matricula: { contains: 'SISP-0142' } },
+    ]);
   });
 
   it('400 para busca com menos de 3 caracteres', async () => {
@@ -451,6 +563,23 @@ describe('PATCH /api/user/me (edição dos próprios dados)', () => {
     expect(where).toEqual({ id: ID_POR_TIPO.municipe });
     expect(data.name).toBe('Novo Nome');
     expect(data.tipoUsuario).toBeUndefined();
+  });
+
+  it('ignora cargo e matrícula enviados pelo próprio usuário', async () => {
+    const res = await request(app)
+      .patch('/api/user/me')
+      .set(auth('funcionario'))
+      .send({
+        nome: 'Novo Nome',
+        cargo: 'Coordenador',
+        matricula: 'SISP-9999',
+      });
+
+    expect(res.status).toBe(200);
+
+    const { data } = prismaMock.user.update.mock.calls[0][0];
+    expect(data.cargo).toBeUndefined();
+    expect(data.matricula).toBeUndefined();
   });
 
   it('400 ao trocar a senha sem informar a senha atual', async () => {
@@ -546,5 +675,37 @@ describe('gestão de usuários (PATCH / DELETE / PUT departamentos)', () => {
     expect(prismaMock.user.update.mock.calls[0][0].data.tipoUsuario).toBe(
       'funcionario',
     );
+  });
+
+  it('PATCH /:id permite que o gestor altere cargo e matrícula', async () => {
+    const res = await request(app)
+      .patch(`/api/user/${ID_POR_TIPO.funcionario}`)
+      .set(auth('gestor'))
+      .send({ cargo: 'Técnico Pleno', matricula: 'SISP-0500' });
+
+    expect(res.status).toBe(200);
+
+    const { data } = prismaMock.user.update.mock.calls[0][0];
+    expect(data.cargo).toBe('Técnico Pleno');
+    expect(data.matricula).toBe('SISP-0500');
+  });
+
+  it('PATCH /:id aceita reenviar a matrícula que já é do próprio usuário', async () => {
+    const res = await request(app)
+      .patch(`/api/user/${ID_POR_TIPO.funcionario}`)
+      .set(auth('gestor'))
+      .send({ matricula: 'SISP-0012' });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('PATCH /:id retorna 409 quando a matrícula pertence a outro usuário', async () => {
+    const res = await request(app)
+      .patch('/api/user/7')
+      .set(auth('gestor'))
+      .send({ matricula: 'SISP-0012' });
+
+    expect(res.status).toBe(409);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });
