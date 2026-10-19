@@ -7,6 +7,7 @@ declare global {
       user?: TokenPayload;
       /** Query/params já validados e tipados por validateQuery/validateParams. */
       validated?: {
+        body?: unknown;
         query?: unknown;
         params?: unknown;
       };

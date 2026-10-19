@@ -2,19 +2,21 @@ import type { Request, Response } from 'express';
 import { generateToken } from '../../shared/utils/jwt.js';
 import { userService } from './user.service.js';
 import type {
-  CreateFuncionarioDTO,
+  CreateFuncionarioBodyDTO,
   CreateUserDTO,
+  GetManyFuncionariosQueryDTO,
   LoginUserDTO,
   SetDepartamentosBodyDTO,
   UpdateUserBodyDTO,
+  UpdateMeBodyDTO,
   UserIdParamsDTO,
 } from './dtos/user.dto.js';
 
 export class UserController {
   register = async (request: Request, response: Response) => {
-    const data = request.body as CreateUserDTO;
+    const data = request.validated?.body as CreateUserDTO;
 
-    const usuario = await userService.createMunicipe(data);
+    const usuario = await userService.create(data);
 
     const { id, email, name, tipoUsuario } = usuario;
 
@@ -32,25 +34,8 @@ export class UserController {
     });
   };
 
-  registerFuncionario = async (request: Request, response: Response) => {
-    const data = request.body as CreateFuncionarioDTO;
-
-    const usuario = await userService.createFuncionario(data);
-
-    // Sem token: quem está logado é o gestor, não o funcionário recém-criado.
-    response.status(201).json({
-      usuario: {
-        id: usuario.id,
-        nome: usuario.name,
-        email: usuario.email,
-        tipo_usuario: usuario.tipoUsuario,
-        created_at: usuario.createdAt,
-      },
-    });
-  };
-
   login = async (request: Request, response: Response) => {
-    const data = request.body as LoginUserDTO;
+    const data = request.validated?.body as LoginUserDTO;
 
     const usuario = await userService.login(data);
 
@@ -73,11 +58,20 @@ export class UserController {
   me = async (request: Request, response: Response) => {
     response.status(200).json(request.user);
   };
+
   update = async (request: Request, response: Response) => {
     const { id } = request.validated?.params as UserIdParamsDTO;
-    const data = request.body as UpdateUserBodyDTO;
+    const data = request.validated?.body as UpdateUserBodyDTO;
 
-    const usuario = await userService.update(id, data);
+    const usuario = await userService.update(id, data, request.user!.id);
+
+    response.status(200).json(usuario);
+  };
+
+  updateMe = async (request: Request, response: Response) => {
+    const data = request.validated?.body as UpdateMeBodyDTO;
+
+    const usuario = await userService.updateMe(request.user!.id, data);
 
     response.status(200).json(usuario);
   };
@@ -85,7 +79,7 @@ export class UserController {
   remove = async (request: Request, response: Response) => {
     const { id } = request.validated?.params as UserIdParamsDTO;
 
-    const usuario = await userService.softDelete(id);
+    const usuario = await userService.softDelete(id, request.user!.id);
 
     response.status(200).json(usuario);
   };
@@ -94,8 +88,34 @@ export class UserController {
     const { id } = request.validated?.params as UserIdParamsDTO;
     const data = request.body as SetDepartamentosBodyDTO;
 
-    const vinculos = await userService.setDepartamentos(id, data);
+    const vinculos = await userService.setDepartamentos(
+      id,
+      data,
+      request.user!.id,
+    );
 
     response.status(200).json(vinculos);
+  };
+
+  getManyFuncionarios = async (request: Request, response: Response) => {
+    const query = request.validated?.query as GetManyFuncionariosQueryDTO;
+
+    const result = await userService.getManyFuncionarios(query);
+
+    response.status(200).json(result);
+  };
+
+  getById = async (request: Request, response: Response) => {
+    const { id } = request.validated?.params as UserIdParamsDTO;
+
+    response.status(200).json(await userService.getById(id));
+  };
+
+  createFuncionario = async (request: Request, response: Response) => {
+    const body = request.validated?.body as CreateFuncionarioBodyDTO;
+
+    const result = await userService.createFuncionario(body, request.user!.id);
+
+    response.status(201).json(result);
   };
 }

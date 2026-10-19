@@ -1,13 +1,62 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from 'express';
+import { enviarArquivo } from '../../shared/storage/enviar-arquivo.js';
+import { arquivosDaRequisicao } from '../../shared/middlewares/upload.middleware.js';
 import type {
   CreateSolicitacaoBodyDTO,
+  CreateTicketBodyDTO,
+  GetMeusTicketsQueryDTO,
   GetManyTicketsQueryDTO,
   TicketIdParamsDTO,
   UpdateTicketBodyDTO,
-} from "./dtos/ticket.dto.js";
-import { ticketService } from "./ticket.service.js";
+} from './dtos/ticket.dto.js';
+import { ticketService } from './ticket.service.js';
 
 class TicketController {
+  create = async (request: Request, response: Response) => {
+    const body = request.body as CreateTicketBodyDTO;
+
+    const ticket = await ticketService.create(
+      request.user!,
+      body,
+      arquivosDaRequisicao(request),
+    );
+
+    response.status(201).json(ticket);
+  };
+
+  getMeus = async (request: Request, response: Response) => {
+    const query = request.validated?.query as GetMeusTicketsQueryDTO;
+
+    response
+      .status(200)
+      .json(await ticketService.getMeus(request.user!, query));
+  };
+
+  getMeuById = async (request: Request, response: Response) => {
+    const { id } = request.validated?.params as TicketIdParamsDTO;
+
+    response
+      .status(200)
+      .json(await ticketService.getMeuById(request.user!, id));
+  };
+
+  acompanhar = async (request: Request, response: Response) => {
+    const { codigo } = request.validated?.params as { codigo: string };
+
+    response.status(200).json(await ticketService.acompanhar(codigo));
+  };
+
+  getArquivoPublico = async (request: Request, response: Response) => {
+    const { codigo, idArquivo } = request.validated?.params as {
+      codigo: string;
+      idArquivo: number;
+    };
+
+    const caminho = await ticketService.getArquivoPublico(codigo, idArquivo);
+
+    await enviarArquivo(response, caminho);
+  };
+
   getMany = async (request: Request, response: Response) => {
     const query = request.validated?.query as GetManyTicketsQueryDTO;
 
@@ -45,7 +94,11 @@ class TicketController {
     const { id } = request.validated?.params as TicketIdParamsDTO;
     const body = request.body as CreateSolicitacaoBodyDTO;
 
-    const solicitacao = await ticketService.createSolicitacao(request.user!, id, body);
+    const solicitacao = await ticketService.createSolicitacao(
+      request.user!,
+      id,
+      body,
+    );
 
     response.status(201).json(solicitacao);
   };

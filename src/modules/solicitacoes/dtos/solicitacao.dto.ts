@@ -1,8 +1,16 @@
-import type { z } from "zod";
+import type { z } from 'zod';
 import type {
+  createMensagemBodySchema,
+  getManySolicitacoesQuerySchema,
   respondSolicitacaoBodySchema,
   solicitacaoIdParamsSchema,
-} from "../schemas/solicitacao.schema.js";
+} from '../schemas/solicitacao.schema.js';
 
 export type SolicitacaoIdParamsDTO = z.infer<typeof solicitacaoIdParamsSchema>;
-export type RespondSolicitacaoBodyDTO = z.infer<typeof respondSolicitacaoBodySchema>;
+export type RespondSolicitacaoBodyDTO = z.infer<
+  typeof respondSolicitacaoBodySchema
+>;
+export type GetManySolicitacoesQueryDTO = z.infer<
+  typeof getManySolicitacoesQuerySchema
+>;
+export type CreateMensagemBodyDTO = z.infer<typeof createMensagemBodySchema>;

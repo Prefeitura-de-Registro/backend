@@ -6,10 +6,13 @@ const prismaMock = vi.hoisted(() => ({
   user: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
   },
-  departamento: { count: vi.fn() },
+  departamento: { count: vi.fn(), findMany: vi.fn() },
+  logAuditoria: { create: vi.fn() },
   usuarioDepartamento: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
@@ -18,15 +21,83 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
-vi.mock('../../shared/database/prisma.js', () => ({ prisma: prismaMock }));
-vi.mock('../../shared/utils/hash.js', () => ({
+const hashMock = vi.hoisted(() => ({
   hashPassword: vi.fn(async () => 'hash'),
   comparePassword: vi.fn(async () => true),
 }));
 
+vi.mock('../../shared/database/prisma.js', () => ({ prisma: prismaMock }));
+vi.mock('../../shared/utils/hash.js', () => hashMock);
+
 import { app } from '../../app.js';
 
-function tokenFor(tipoUsuario: string, id = 10) {
+// ---------------------------------------------------------------------------
+// "Banco" em memória: o authMiddleware busca o usuário do token por id
+// (findUnique), então cada tipo de usuário tem um id fixo.
+// ---------------------------------------------------------------------------
+
+const ID_POR_TIPO: Record<string, number> = {
+  municipe: 11,
+  funcionario: 12,
+  gestor: 13,
+};
+
+type UsuarioFake = {
+  id: number;
+  email: string | null;
+  name: string | null;
+  tipoUsuario: string;
+  ativo: boolean;
+  reservado?: boolean;
+  passwordHash?: string | null;
+};
+
+let usuariosNoBanco: Map<number, UsuarioFake>;
+
+function popularBanco() {
+  usuariosNoBanco = new Map<number, UsuarioFake>([
+    // linha reservada do usuário anônimo
+    [
+      1,
+      {
+        id: 1,
+        email: null,
+        name: null,
+        tipoUsuario: 'municipe',
+        ativo: true,
+        reservado: true,
+        passwordHash: null,
+      },
+    ],
+    // usuário comum que o gestor administra nos testes
+    [
+      7,
+      {
+        id: 7,
+        email: 'a@teste.com',
+        name: 'Alvo',
+        tipoUsuario: 'municipe',
+        ativo: true,
+        reservado: false,
+        passwordHash: 'hash-atual',
+      },
+    ],
+  ]);
+
+  for (const [tipoUsuario, id] of Object.entries(ID_POR_TIPO)) {
+    usuariosNoBanco.set(id, {
+      id,
+      email: `${tipoUsuario}@teste.com`,
+      name: 'Teste',
+      tipoUsuario,
+      ativo: true,
+      reservado: false,
+      passwordHash: 'hash-atual',
+    });
+  }
+}
+
+function tokenFor(tipoUsuario: string, id = ID_POR_TIPO[tipoUsuario]) {
   return jwt.sign(
     { id, email: `${tipoUsuario}@teste.com`, name: 'Teste', tipoUsuario },
     process.env.JWT_SECRET as string,
@@ -41,6 +112,17 @@ const novoUsuario = {
   senha: 'senha-segura-123',
 };
 
+const novoFuncionario = {
+  ...novoUsuario,
+  departamentoIds: [1],
+  status: true,
+  matricula: 'MAT-0001',
+  cargo: 'Fiscal de obras',
+};
+
+// CPF fictício com dígitos verificadores válidos
+const CPF_VALIDO = '529.982.247-25';
+
 function criadoComo(tipoUsuario: string) {
   return {
     id: 99,
@@ -53,6 +135,12 @@ function criadoComo(tipoUsuario: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  popularBanco();
+
+  prismaMock.user.findUnique.mockImplementation(
+    async ({ where }: { where: { id: number } }) =>
+      usuariosNoBanco.get(where.id) ?? null,
+  );
   prismaMock.user.findFirst.mockResolvedValue(null);
   prismaMock.user.create.mockImplementation(
     async ({ data }: { data: { tipoUsuario: string } }) =>
@@ -62,7 +150,18 @@ beforeEach(() => {
     async ({ data }: { data: { tipoUsuario?: string } }) =>
       criadoComo(data.tipoUsuario ?? 'municipe'),
   );
+  prismaMock.departamento.findMany.mockResolvedValue([{ id: 1 }]);
+  prismaMock.usuarioDepartamento.findMany.mockResolvedValue([]);
+  prismaMock.logAuditoria.create.mockResolvedValue({});
+  prismaMock.$transaction.mockImplementation(async (arg: unknown) =>
+    Array.isArray(arg)
+      ? Promise.all(arg)
+      : (arg as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock),
+  );
+  hashMock.comparePassword.mockResolvedValue(true);
 });
+
+// ---------------------------------------------------------------------------
 
 describe('POST /api/user/register (cadastro público)', () => {
   it('cria munícipe quando tipoUsuario não é enviado', async () => {
@@ -93,20 +192,25 @@ describe('POST /api/user/register (cadastro público)', () => {
     },
   );
 
-  it('não reativa/rebaixa conta inativa de funcionário (409)', async () => {
-    prismaMock.user.findFirst.mockResolvedValue({
-      id: 5,
-      email: novoUsuario.email,
-      ativo: false,
-      tipoUsuario: 'funcionario',
-    });
+  it.each(['funcionario', 'gestor'])(
+    'não reativa conta inativa de %s (409)',
+    async (tipoUsuario) => {
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: 5,
+        email: novoUsuario.email,
+        ativo: false,
+        tipoUsuario,
+      });
 
-    const res = await request(app).post('/api/user/register').send(novoUsuario);
+      const res = await request(app)
+        .post('/api/user/register')
+        .send(novoUsuario);
 
-    expect(res.status).toBe(409);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
-    expect(prismaMock.user.create).not.toHaveBeenCalled();
-  });
+      expect(res.status).toBe(409);
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
+    },
+  );
 
   it('reativa conta inativa de munícipe como munícipe', async () => {
     prismaMock.user.findFirst.mockResolvedValue({
@@ -140,11 +244,42 @@ describe('POST /api/user/register (cadastro público)', () => {
   });
 });
 
-describe('POST /api/user/funcionarios (somente gestor)', () => {
-  it('401 sem token', async () => {
+describe('autenticação', () => {
+  it('GET /me sem token devolve o usuário anônimo', async () => {
+    const res = await request(app).get('/api/user/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body.tipoUsuario).toBe('anonimo');
+  });
+
+  it('401 com header Authorization malformado', async () => {
     const res = await request(app)
-      .post('/api/user/funcionarios')
-      .send(novoUsuario);
+      .get('/api/user/me')
+      .set({ Authorization: 'Token abc' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('401 com token de usuário desativado', async () => {
+    usuariosNoBanco.get(ID_POR_TIPO.gestor)!.ativo = false;
+
+    const res = await request(app).get('/api/user').set(auth('gestor'));
+
+    expect(res.status).toBe(401);
+  });
+
+  it('usa o tipo do banco, não o do token (gestor rebaixado perde acesso)', async () => {
+    usuariosNoBanco.get(ID_POR_TIPO.gestor)!.tipoUsuario = 'funcionario';
+
+    const res = await request(app).get('/api/user').set(auth('gestor'));
+
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('POST /api/user (cadastro de funcionário, somente gestor)', () => {
+  it('401 sem token', async () => {
+    const res = await request(app).post('/api/user').send(novoFuncionario);
 
     expect(res.status).toBe(401);
     expect(prismaMock.user.create).not.toHaveBeenCalled();
@@ -152,29 +287,59 @@ describe('POST /api/user/funcionarios (somente gestor)', () => {
 
   it.each(['municipe', 'funcionario'])('403 para %s', async (tipo) => {
     const res = await request(app)
-      .post('/api/user/funcionarios')
+      .post('/api/user')
       .set(auth(tipo))
-      .send(novoUsuario);
+      .send(novoFuncionario);
 
     expect(res.status).toBe(403);
     expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
-  it('201 para gestor: cria funcionário e não devolve token', async () => {
+  it('201 para gestor: cria funcionário vinculado aos departamentos, sem token', async () => {
     const res = await request(app)
-      .post('/api/user/funcionarios')
+      .post('/api/user')
       .set(auth('gestor'))
-      .send({ ...novoUsuario, tipoUsuario: 'gestor' });
+      .send(novoFuncionario);
 
     expect(res.status).toBe(201);
-    expect(res.body.usuario.tipo_usuario).toBe('funcionario');
+    expect(res.body.tipoUsuario).toBe('funcionario');
     expect(res.body.token).toBeUndefined();
+
+    const data = prismaMock.user.create.mock.calls[0][0].data;
+    expect(data.tipoUsuario).toBe('funcionario');
+    expect(data.ativo).toBe(true);
+    expect(data.usuarioDepartamentos.createMany.data).toEqual([
+      { idDepartamento: 1 },
+    ]);
+  });
+
+  // Regra atual: o gestor pode definir o tipo (inclusive gestor). Pendente de validação do squad.
+  it('respeita o tipoUsuario informado pelo gestor', async () => {
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, tipoUsuario: 'gestor' });
+
+    expect(res.status).toBe(201);
     expect(prismaMock.user.create.mock.calls[0][0].data.tipoUsuario).toBe(
-      'funcionario',
+      'gestor',
     );
   });
 
-  it('409 para gestor quando o e-mail já pertence a uma conta ativa', async () => {
+  it('400 para departamento inexistente ou inativo', async () => {
+    prismaMock.departamento.findMany.mockResolvedValue([]);
+
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, departamentoIds: [42] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('42');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('409 quando o e-mail já pertence a uma conta ativa', async () => {
     prismaMock.user.findFirst.mockResolvedValue({
       id: 5,
       ativo: true,
@@ -182,32 +347,79 @@ describe('POST /api/user/funcionarios (somente gestor)', () => {
     });
 
     const res = await request(app)
-      .post('/api/user/funcionarios')
+      .post('/api/user')
       .set(auth('gestor'))
-      .send(novoUsuario);
+      .send(novoFuncionario);
 
     expect(res.status).toBe(409);
   });
 
-  it('409 para gestor quando o e-mail pertence a um gestor inativo', async () => {
+  it('reativa conta inativa substituindo os departamentos', async () => {
     prismaMock.user.findFirst.mockResolvedValue({
       id: 5,
       ativo: false,
-      tipoUsuario: 'gestor',
+      tipoUsuario: 'funcionario',
     });
 
     const res = await request(app)
-      .post('/api/user/funcionarios')
+      .post('/api/user')
       .set(auth('gestor'))
-      .send(novoUsuario);
+      .send(novoFuncionario);
 
-    expect(res.status).toBe(409);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+
+    const { where, data } = prismaMock.user.update.mock.calls[0][0];
+    expect(where).toEqual({ id: 5 });
+    expect(data.usuarioDepartamentos.deleteMany).toEqual({});
+    expect(data.usuarioDepartamentos.createMany.data).toEqual([
+      { idDepartamento: 1 },
+    ]);
+  });
+
+  it('400 sem matrícula ou cargo para funcionário', async () => {
+    const { matricula: _m, cargo: _c, ...semDados } = novoFuncionario;
+
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send(semDados);
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('400 para CPF com dígitos verificadores inválidos', async () => {
+    const res = await request(app)
+      .post('/api/user')
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, cpf: '111.111.111-11' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('salva CPF só com dígitos, matrícula e cargo, e grava auditoria sem o CPF', async () => {
+    const res = await request(app)
+      .post('/api/user/funcionarios') // alias de POST /api/user
+      .set(auth('gestor'))
+      .send({ ...novoFuncionario, cpf: CPF_VALIDO });
+
+    expect(res.status).toBe(201);
+
+    const data = prismaMock.user.create.mock.calls[0][0].data;
+    expect(data.cpf).toBe('52998224725');
+    expect(data.matricula).toBe('MAT-0001');
+    expect(data.cargo).toBe('Fiscal de obras');
+
+    const auditoria = prismaMock.logAuditoria.create.mock.calls[0][0].data;
+    expect(auditoria.acao).toBe('usuario_criado');
+    expect(auditoria.idUsuario).toBe(13);
+    expect(JSON.stringify(auditoria)).not.toContain('52998224725');
   });
 
   it('400 para dados inválidos', async () => {
     const res = await request(app)
-      .post('/api/user/funcionarios')
+      .post('/api/user')
       .set(auth('gestor'))
       .send({ nome: 'a', email: 'x', senha: '1' });
 
@@ -215,26 +427,196 @@ describe('POST /api/user/funcionarios (somente gestor)', () => {
   });
 });
 
+describe('GET /api/user (listagem de funcionários, somente gestor)', () => {
+  it('403 para funcionário', async () => {
+    const res = await request(app).get('/api/user').set(auth('funcionario'));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('200 para gestor, com departamentos e total de tickets formatados', async () => {
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 20,
+        name: 'Func Vias',
+        ativo: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        usuarioDepartamentos: [
+          { departamento: { id: 1, nome: 'Vias', sigla: 'VIAS' } },
+        ],
+        _count: { ticketsResponsaveis: 3 },
+      },
+    ]);
+    prismaMock.user.count.mockResolvedValue(1);
+
+    const res = await request(app)
+      .get('/api/user?page=1&limit=10')
+      .set(auth('gestor'));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].departamentos).toEqual([
+      { id: 1, nome: 'Vias', sigla: 'VIAS' },
+    ]);
+    expect(res.body.data[0].totalTickets).toBe(3);
+    expect(res.body.pagination).toEqual({
+      page: 1,
+      limit: 10,
+      total: 1,
+      totalPages: 1,
+    });
+    expect(prismaMock.user.findMany.mock.calls[0][0].where.tipoUsuario).toEqual(
+      { in: ['funcionario'] },
+    );
+  });
+
+  it('aceita filtros de tipo (lista), ativo e busca; nunca lista a linha reservada', async () => {
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(0);
+
+    const res = await request(app)
+      .get('/api/user?tipo=funcionario,gestor&ativo=false&busca=maria')
+      .set(auth('gestor'));
+
+    expect(res.status).toBe(200);
+
+    const { where } = prismaMock.user.findMany.mock.calls[0][0];
+    expect(where.tipoUsuario).toEqual({ in: ['funcionario', 'gestor'] });
+    expect(where.ativo).toBe(false);
+    expect(where.reservado).toBe(false);
+    expect(where.OR).toHaveLength(3);
+  });
+
+  it('busca por CPF completo compara só os dígitos', async () => {
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(0);
+
+    await request(app)
+      .get(`/api/user?busca=${encodeURIComponent(CPF_VALIDO)}`)
+      .set(auth('gestor'));
+
+    const { where } = prismaMock.user.findMany.mock.calls[0][0];
+    expect(where.OR).toContainEqual({ cpf: '52998224725' });
+  });
+
+  it('mascara o CPF na listagem (LGPD)', async () => {
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 20,
+        name: 'Func Vias',
+        email: 'f@teste.com',
+        tipoUsuario: 'funcionario',
+        matricula: 'MAT-1',
+        cargo: 'Fiscal',
+        cpf: '52998224725',
+        ativo: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        usuarioDepartamentos: [],
+        _count: { ticketsResponsaveis: 0 },
+      },
+    ]);
+    prismaMock.user.count.mockResolvedValue(1);
+
+    const res = await request(app).get('/api/user').set(auth('gestor'));
+
+    expect(res.body.data[0].cpf).toBe('***.982.247-**');
+    expect(JSON.stringify(res.body)).not.toContain('52998224725');
+  });
+
+  it('400 para filtro de tipo inválido', async () => {
+    const res = await request(app)
+      .get('/api/user?tipo=admin')
+      .set(auth('gestor'));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('400 para busca com menos de 3 caracteres', async () => {
+    const res = await request(app)
+      .get('/api/user?busca=ab')
+      .set(auth('gestor'));
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /api/user/me (edição dos próprios dados)', () => {
+  it('401 sem token', async () => {
+    const res = await request(app)
+      .patch('/api/user/me')
+      .send({ nome: 'Novo Nome' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('200 para munícipe alterando o nome; tipoUsuario enviado é ignorado', async () => {
+    const res = await request(app)
+      .patch('/api/user/me')
+      .set(auth('municipe'))
+      .send({ nome: 'Novo Nome', tipoUsuario: 'gestor' });
+
+    expect(res.status).toBe(200);
+
+    const { where, data } = prismaMock.user.update.mock.calls[0][0];
+    expect(where).toEqual({ id: ID_POR_TIPO.municipe });
+    expect(data.name).toBe('Novo Nome');
+    expect(data.tipoUsuario).toBeUndefined();
+  });
+
+  it('400 ao trocar a senha sem informar a senha atual', async () => {
+    const res = await request(app)
+      .patch('/api/user/me')
+      .set(auth('municipe'))
+      .send({ senha: 'nova-senha-123' });
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('400 quando a senha atual está incorreta', async () => {
+    hashMock.comparePassword.mockResolvedValue(false);
+
+    const res = await request(app)
+      .patch('/api/user/me')
+      .set(auth('municipe'))
+      .send({ senhaAtual: 'errada', senha: 'nova-senha-123' });
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('200 ao trocar a senha com a senha atual correta', async () => {
+    const res = await request(app)
+      .patch('/api/user/me')
+      .set(auth('funcionario'))
+      .send({ senhaAtual: 'senha-atual', senha: 'nova-senha-123' });
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.update.mock.calls[0][0].data.passwordHash).toBe(
+      'hash',
+    );
+  });
+});
+
 describe('gestão de usuários (PATCH / DELETE / PUT departamentos)', () => {
   const rotas = [
     {
       nome: 'PATCH /:id',
-      chamar: (headers: Record<string, string>) =>
+      chamar: (id: number, headers: Record<string, string>) =>
         request(app)
-          .patch('/api/user/7')
+          .patch(`/api/user/${id}`)
           .set(headers)
           .send({ tipoUsuario: 'funcionario' }),
     },
     {
       nome: 'DELETE /:id',
-      chamar: (headers: Record<string, string>) =>
-        request(app).delete('/api/user/7').set(headers),
+      chamar: (id: number, headers: Record<string, string>) =>
+        request(app).delete(`/api/user/${id}`).set(headers),
     },
     {
       nome: 'PUT /:id/departamentos',
-      chamar: (headers: Record<string, string>) =>
+      chamar: (id: number, headers: Record<string, string>) =>
         request(app)
-          .put('/api/user/7/departamentos')
+          .put(`/api/user/${id}/departamentos`)
           .set(headers)
           .send({ departamentoIds: [] }),
     },
@@ -242,28 +624,85 @@ describe('gestão de usuários (PATCH / DELETE / PUT departamentos)', () => {
 
   describe.each(rotas)('$nome', ({ chamar }) => {
     it('401 sem token', async () => {
-      expect((await chamar({})).status).toBe(401);
+      expect((await chamar(7, {})).status).toBe(401);
     });
 
     it.each(['municipe', 'funcionario'])('403 para %s', async (tipo) => {
-      const res = await chamar(auth(tipo));
+      const res = await chamar(7, auth(tipo));
 
       expect(res.status).toBe(403);
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
+
+    it('403 no usuário reservado (id 1), mesmo para gestor', async () => {
+      const res = await chamar(1, auth('gestor'));
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe('Este usuário é reservado pelo sistema');
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+      expect(prismaMock.usuarioDepartamento.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  it('gestor não pode rebaixar nem desativar a si mesmo', async () => {
+    const rebaixar = await request(app)
+      .patch('/api/user/13')
+      .set(auth('gestor'))
+      .send({ tipoUsuario: 'funcionario' });
+    const desativarPatch = await request(app)
+      .patch('/api/user/13')
+      .set(auth('gestor'))
+      .send({ ativo: false });
+    const desativarDelete = await request(app)
+      .delete('/api/user/13')
+      .set(auth('gestor'));
+
+    expect(rebaixar.status).toBe(403);
+    expect(desativarPatch.status).toBe(403);
+    expect(desativarDelete.status).toBe(403);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('ações do gestor gravam logs_auditoria', async () => {
+    await request(app)
+      .patch('/api/user/7')
+      .set(auth('gestor'))
+      .send({ tipoUsuario: 'funcionario' });
+    await request(app).delete('/api/user/7').set(auth('gestor'));
+    await request(app)
+      .put('/api/user/7/departamentos')
+      .set(auth('gestor'))
+      .send({ departamentoIds: [] });
+
+    const acoes = prismaMock.logAuditoria.create.mock.calls.map(
+      (chamada: [{ data: { acao: string } }]) => chamada[0].data.acao,
+    );
+    expect(acoes).toEqual([
+      'tipo_usuario_alterado',
+      'usuario_excluido',
+      'departamentos_alterados',
+    ]);
+  });
+
+  it('PATCH /:id valida o CPF informado', async () => {
+    const res = await request(app)
+      .patch('/api/user/7')
+      .set(auth('gestor'))
+      .send({ cpf: '123' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('PATCH /me do próprio usuário não grava auditoria', async () => {
+    await request(app)
+      .patch('/api/user/me')
+      .set(auth('municipe'))
+      .send({ nome: 'Novo Nome' });
+
+    expect(prismaMock.logAuditoria.create).not.toHaveBeenCalled();
   });
 
   it('PATCH /:id permite que o gestor promova um munícipe a funcionário', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 7,
-      email: 'a@teste.com',
-      ativo: true,
-    });
-    prismaMock.user.update.mockResolvedValue({
-      id: 7,
-      tipoUsuario: 'funcionario',
-    });
-
     const res = await request(app)
       .patch('/api/user/7')
       .set(auth('gestor'))
@@ -271,5 +710,107 @@ describe('gestão de usuários (PATCH / DELETE / PUT departamentos)', () => {
 
     expect(res.status).toBe(200);
     expect(prismaMock.user.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.user.update.mock.calls[0][0].data.tipoUsuario).toBe(
+      'funcionario',
+    );
+  });
+});
+
+describe('GET /api/user/:id (detalhe, somente gestor)', () => {
+  it.each(['municipe', 'funcionario'])('403 para %s', async (tipo) => {
+    const res = await request(app).get('/api/user/7').set(auth(tipo));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('403 no usuário reservado', async () => {
+    const res = await request(app).get('/api/user/1').set(auth('gestor'));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('404 para usuário inexistente', async () => {
+    const res = await request(app).get('/api/user/9999').set(auth('gestor'));
+
+    expect(res.status).toBe(404);
+  });
+
+  it('200 com departamentos vinculados', async () => {
+    prismaMock.user.findUniqueOrThrow = vi.fn().mockResolvedValue({
+      id: 7,
+      name: 'Alvo',
+      email: 'a@teste.com',
+      tipoUsuario: 'funcionario',
+      cpf: '52998224725',
+      matricula: 'MAT-7',
+      cargo: 'Fiscal',
+      ativo: true,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      usuarioDepartamentos: [
+        {
+          departamento: {
+            id: 1,
+            nome: 'Vias',
+            sigla: 'VIAS',
+            secretaria: { id: 1, nome: 'Infra', sigla: 'SI' },
+          },
+        },
+      ],
+      _count: { ticketsResponsaveis: 2 },
+    });
+
+    const res = await request(app).get('/api/user/7').set(auth('gestor'));
+
+    expect(res.status).toBe(200);
+    expect(res.body.departamentos[0].nome).toBe('Vias');
+    expect(res.body.totalTickets).toBe(2);
+    expect(res.body.cpf).toBe('52998224725');
+  });
+});
+
+describe('cadastro público com CPF', () => {
+  it('400 para CPF inválido', async () => {
+    const res = await request(app)
+      .post('/api/user/register')
+      .send({ ...novoUsuario, cpf: '000.000.000-00' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('aceita os nomes de campo do app (nomeCompleto, CPF, confirmarSenha)', async () => {
+    const res = await request(app).post('/api/user/register').send({
+      nomeCompleto: 'Maria da Silva',
+      CPF: CPF_VALIDO,
+      email: 'maria@teste.com',
+      senha: 'Senha@1234',
+      confirmarSenha: 'Senha@1234',
+    });
+
+    expect(res.status).toBe(201);
+    const data = prismaMock.user.create.mock.calls[0][0].data;
+    expect(data.name).toBe('Maria da Silva');
+    expect(data.cpf).toBe('52998224725');
+  });
+
+  it('400 quando confirmarSenha não confere', async () => {
+    const res = await request(app).post('/api/user/register').send({
+      nome: 'Maria da Silva',
+      email: 'maria@teste.com',
+      senha: 'Senha@1234',
+      confirmarSenha: 'outra-senha',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('aceita CPF com máscara e guarda só dígitos', async () => {
+    const res = await request(app)
+      .post('/api/user/register')
+      .send({ ...novoUsuario, cpf: CPF_VALIDO });
+
+    expect(res.status).toBe(201);
+    expect(prismaMock.user.create.mock.calls[0][0].data.cpf).toBe(
+      '52998224725',
+    );
   });
 });

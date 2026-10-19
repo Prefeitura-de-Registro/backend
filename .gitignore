@@ -7,3 +7,7 @@ coverage/
 !.env.example
 *.log
 .vitest/
+
+# Uploads locais
+uploads/
+.sandbox/

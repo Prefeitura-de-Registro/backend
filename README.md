@@ -71,9 +71,50 @@ npm start
 
 ## Endpoints
 
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| GET | `/health` | Verifica a disponibilidade da API e a conexão com o banco. |
+Legenda de acesso: **público** = sem login; **logado** = munícipe, funcionário ou gestor; **equipe** = funcionário ou gestor (o gestor enxerga todos os departamentos); **gestor** = somente gestor.
+
+| Metodo | Rota | Acesso | Descricao |
+| --- | --- | --- | --- |
+| GET | `/health` | público | Disponibilidade da API e conexão com o banco. |
+| POST | `/api/user/register` | público | Cadastro de munícipe. Aceita `nome`/`nomeCompleto`, `cpf`/`CPF` (com ou sem máscara, validado, opcional) e `confirmarSenha` (se enviado, precisa bater). |
+| POST | `/api/user/login` | público | Login. |
+| GET / PATCH | `/api/user/me` | logado | Dados e edição do próprio cadastro (trocar e-mail/senha exige a senha atual). |
+| GET | `/api/user` | gestor | Lista usuários. Filtros: `tipo` (`funcionario,gestor`), `ativo`, `busca` (nome, e-mail, matrícula, CPF), `page`, `limit`. CPF vem mascarado. |
+| GET | `/api/user/:id` | gestor | Detalhe com departamentos e CPF completo. |
+| POST | `/api/user` (alias `/api/user/funcionarios`) | gestor | Cria funcionário/gestor (exige `matricula` e `cargo`; `cpf` opcional). |
+| PATCH / DELETE | `/api/user/:id` | gestor | Edita / desativa (não vale para o usuário reservado nem para si mesmo). |
+| PUT | `/api/user/:id/departamentos` | gestor | Substitui os vínculos com departamentos. |
+| GET | `/api/categorias` | público | Categorias ativas, com departamento. |
+| GET | `/api/categorias/:id/perguntas` | público | Perguntas do formulário (`id`, `enunciado`, `ordem`). |
+| POST | `/api/tickets` | público | Abre chamado (JSON ou `multipart/form-data` com até 10 imagens/vídeos em `fotos`). Anônimo recebe `tokenAcesso`. Campos: `idCategoria`, `descricao`, `latitude`/`longitude`, `endereco`, `pontoReferencia`, `respostas: [{idPergunta, valor}]`. |
+| GET | `/api/tickets/acompanhar/:codigo` | público | Acompanhamento sem login. `:codigo` = token do link (visão completa) **ou** protocolo (`REG-2026-000001`, `#2026-1`...; visão sem endereço/localização). Traz `respostas`, `arquivos` e `historicos`. |
+| GET | `/api/tickets/acompanhar/:codigo/arquivos/:id` | público | Imagem/vídeo do chamado (serve em `<img src>`/`<video src>`). |
+| GET | `/api/tickets/meus`, `/api/tickets/meus/:id` | logado | Chamados do próprio usuário (sem dados internos). `status` aceita lista (`resolvido,fechado`) para as abas. |
+| GET | `/api/tickets`, `/api/tickets/:id` | equipe | Lista/detalhe, com `localizacao: { latitude, longitude }` e `arquivos`. |
+| PATCH | `/api/tickets/:id`, `/api/tickets/:id/assume` | equipe | Atualiza / assume o ticket. |
+| GET / POST | `/api/tickets/:id/solicitacoes` | equipe | Solicitações do ticket / cria solicitação (deixa o ticket `pendente`). |
+| GET | `/api/departamentos?excluir=<id>` | equipe | Departamentos ativos para escolher o destino de uma solicitação. |
+| GET | `/api/solicitacoes?tipo=recebidas\|enviadas&status&page&limit` | equipe | Lista de solicitações. |
+| GET | `/api/solicitacoes/:id` | equipe | Detalhe (ticket resumido, resposta, mensagens). |
+| PATCH | `/api/solicitacoes/:id` | equipe | Responde/recusa; ao finalizar a última, o ticket volta ao status anterior ao `pendente`. |
+| GET / POST | `/api/solicitacoes/:id/mensagens` | equipe | Chat interno entre departamentos (`multipart/form-data`: `mensagem` + até 10 imagens/vídeos em `imagens`). |
+| GET | `/api/arquivos/:id` | logado | Entrega a imagem/vídeo (dono do ticket ou departamento envolvido; chat interno nunca para munícipe). |
+| GET | `/api/notificacoes?status=nao_lidas\|todas` | equipe | Notificações do usuário, com `titulo` e `descricao` prontos (inclui `naoLidas`). |
+| PATCH | `/api/notificacoes/:id/lida`, `/api/notificacoes/lidas` | equipe | Marca uma / todas como lidas. |
+| GET | `/api/mapas`, `/api/relatorios/...` | equipe | Mapa e relatórios. |
+
+### Variáveis de ambiente novas
+
+| Variável | Uso |
+| --- | --- |
+| `CORS_ORIGIN` | Origens permitidas, separadas por vírgula. Em produção, sem ela nenhuma origem externa é aceita. |
+| `TRUST_PROXY` | Ex.: `1` atrás de proxy/load balancer, para o rate limit usar o IP real. |
+| `UPLOAD_DIR` | Pasta das imagens enviadas (padrão `uploads`). Em Docker, monte um volume. |
+| `FRONTEND_URL` | Base do `linkAcompanhamento` devolvido na abertura de chamado anônimo. |
+| `PRAZO_ALERTA_PERCENTUAL` / `PRAZO_ALERTA_DISABLED` | Aviso "chamado próximo do prazo": dispara quando resta esse % do prazo (padrão 20). Roda ao subir e a cada 30 min. |
+| `RATE_LIMIT_DISABLED` | `true` desliga os limites (login 10/15 min, cadastro 10/h, abertura anônima 10/h por IP). |
+
+Mídia: imagens JPEG/PNG/WebP e vídeos MP4/MOV/WebM, até 30 MB cada (como o app informa); HEIC não é aceito. O tipo real é conferido pelos bytes e o nome do arquivo é gerado pelo servidor.
 
 ---
 
