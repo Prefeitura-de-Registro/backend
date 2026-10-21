@@ -9,9 +9,11 @@ import { AppError } from '../../shared/errors/app-error.js';
 import type { TokenPayload } from '../../shared/types/token-payload.js';
 import type {
   CreateSolicitacaoBodyDTO,
+  CreateTicketBodyDTO,
   GetManyTicketsQueryDTO,
   UpdateTicketBodyDTO,
 } from './dtos/ticket.dto.js';
+import { calcularSla } from './rules/sla.rules.js';
 
 const ticketDetailInclude = {
   usuario: { select: { id: true, name: true, email: true } },
@@ -37,7 +39,144 @@ const ticketListInclude = {
 } satisfies Prisma.TicketInclude;
 
 class TicketService {
+  async create(user: TokenPayload, body: CreateTicketBodyDTO) {
+    const categoria = await prisma.categoria.findFirst({
+      where: {
+        id: body.idCategoria,
+        ativo: true,
+        departamento: { ativo: true },
+      },
+      include: {
+        perguntas: { orderBy: [{ ordem: 'asc' }, { id: 'asc' }] },
+      },
+    });
+
+    if (!categoria) {
+      throw new AppError('Categoria não encontrada', 404);
+    }
+
+    const perguntasDaCategoria = new Set(
+      categoria.perguntas.map((pergunta) => pergunta.id),
+    );
+    const respostasPorPergunta = new Map<number, boolean>();
+
+    for (const resposta of body.respostas) {
+      if (!perguntasDaCategoria.has(resposta.idPergunta)) {
+        throw new AppError(
+          `A pergunta ${resposta.idPergunta} não pertence à categoria informada`,
+          400,
+        );
+      }
+
+      if (respostasPorPergunta.has(resposta.idPergunta)) {
+        throw new AppError(
+          `A pergunta ${resposta.idPergunta} foi respondida mais de uma vez`,
+          400,
+        );
+      }
+
+      respostasPorPergunta.set(resposta.idPergunta, resposta.valor);
+    }
+
+    const respostasSim = new Set(
+      [...respostasPorPergunta.entries()]
+        .filter(([, valor]) => valor)
+        .map(([idPergunta]) => idPergunta),
+    );
+    const sla = calcularSla(categoria, categoria.perguntas, respostasSim);
+
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const ticket = await tx.ticket.create({
+        data: {
+          idUsuario: user.id,
+          idCategoria: categoria.id,
+          idDepartamento: categoria.idDepartamento,
+          descricao: body.descricao ?? null,
+          prioridade: sla.prioridade,
+          prazoPrimeiraRespostaMinutos: sla.prazoPrimeiraRespostaMinutos,
+          prazoResolucaoMinutos: sla.prazoResolucaoMinutos,
+        },
+      });
+
+      const protocolo = `REG-${ticket.createdAt.getFullYear()}-${String(ticket.id).padStart(6, '0')}`;
+
+      await tx.ticket.update({
+        where: { id: ticket.id },
+        data: { protocolo },
+      });
+
+      if (body.latitude !== undefined && body.longitude !== undefined) {
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE tickets
+          SET geom = ST_SetSRID(
+            ST_MakePoint(${body.longitude}::double precision, ${body.latitude}::double precision),
+            4326
+          )::geography
+          WHERE id = ${ticket.id}
+        `);
+      }
+
+      if (categoria.perguntas.length > 0) {
+        await tx.resposta.createMany({
+          data: categoria.perguntas.map((pergunta) => ({
+            idPergunta: pergunta.id,
+            idTicket: ticket.id,
+            valor: respostasPorPergunta.get(pergunta.id) ?? false,
+          })),
+        });
+      }
+
+      await tx.ticketHistorico.create({
+        data: {
+          idTicket: ticket.id,
+          tipoEvento: TipoEvento.criacao,
+          status: 'aberto',
+          prazoMinutos: sla.prazoResolucaoMinutos,
+          idUsuario: user.id,
+        },
+      });
+
+      return tx.ticket.findUniqueOrThrow({
+        where: { id: ticket.id },
+        include: ticketDetailInclude,
+      });
+    });
+  }
+
   async getMany(user: TokenPayload, query: GetManyTicketsQueryDTO) {
+    if (user.tipoUsuario === 'municipe') {
+      const where: Prisma.TicketWhereInput = {
+        idUsuario: user.id,
+        idDepartamento: query.idDepartamento,
+        status: query.status,
+        prioridade: query.prioridade,
+        descricao: query.busca
+          ? { contains: query.busca, mode: 'insensitive' }
+          : undefined,
+      };
+
+      const [data, total] = await prisma.$transaction([
+        prisma.ticket.findMany({
+          where,
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
+          orderBy: { createdAt: 'desc' },
+          include: ticketListInclude,
+        }),
+        prisma.ticket.count({ where }),
+      ]);
+
+      return {
+        data,
+        pagination: {
+          page: query.page,
+          limit: query.limit,
+          total,
+          totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+        },
+      };
+    }
+
     const scope = await getAccessibleDepartamentoIds(user);
 
     if (Array.isArray(scope) && scope.length === 0) {
