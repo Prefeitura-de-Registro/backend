@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js';
-import { requireFuncionario } from '../../shared/middlewares/authorization.middleware.js';
+import {
+  requireAutenticado,
+  requireFuncionario,
+  requireMunicipe,
+} from '../../shared/middlewares/authorization.middleware.js';
 import {
   validateBody,
   validateParams,
@@ -9,6 +13,7 @@ import {
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { ticketController } from './ticket.controller.js';
 import {
+  createTicketBodySchema,
   createSolicitacaoBodySchema,
   getManyTicketsQuerySchema,
   ticketIdParamsSchema,
@@ -17,13 +22,23 @@ import {
 
 const ticketRoutes = Router();
 
-ticketRoutes.use(authMiddleware, requireFuncionario);
+ticketRoutes.post(
+  '/',
+  authMiddleware,
+  requireMunicipe,
+  validateBody(createTicketBodySchema),
+  asyncHandler(ticketController.create),
+);
 
 ticketRoutes.get(
   '/',
+  authMiddleware,
+  requireAutenticado,
   validateQuery(getManyTicketsQuerySchema),
   asyncHandler(ticketController.getMany),
 );
+
+ticketRoutes.use(authMiddleware, requireFuncionario);
 
 ticketRoutes.get(
   '/:id',

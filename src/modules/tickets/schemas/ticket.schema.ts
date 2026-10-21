@@ -16,6 +16,30 @@ export const ticketIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+export const createTicketBodySchema = z
+  .object({
+    idCategoria: z.coerce.number().int().positive(),
+    descricao: z.string().trim().min(1).max(2000).optional(),
+    latitude: z.coerce.number().min(-90).max(90).optional(),
+    longitude: z.coerce.number().min(-180).max(180).optional(),
+    respostas: z
+      .array(
+        z.object({
+          idPergunta: z.coerce.number().int().positive(),
+          valor: z.boolean(),
+        }),
+      )
+      .max(100)
+      .default([]),
+  })
+  .refine(
+    (data) => (data.latitude === undefined) === (data.longitude === undefined),
+    {
+      message: 'Informe latitude e longitude juntas',
+      path: ['latitude'],
+    },
+  );
+
 export const getManyTicketsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),

@@ -23,6 +23,21 @@ export function requireAutenticado(
   next();
 }
 
+/** Permite acesso somente a munícipes autenticados. */
+export function requireMunicipe(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
+  assertAutenticado(request);
+
+  if (request.user!.tipoUsuario !== 'municipe') {
+    throw new AppError('Acesso restrito a munícipes', 403);
+  }
+
+  next();
+}
+
 /**
  * Responsável por responder "esse usuário é funcionário?".
  *

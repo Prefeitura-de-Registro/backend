@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type {
   CreateSolicitacaoBodyDTO,
+  CreateTicketBodyDTO,
   GetManyTicketsQueryDTO,
   TicketIdParamsDTO,
   UpdateTicketBodyDTO,
@@ -8,6 +9,14 @@ import type {
 import { ticketService } from './ticket.service.js';
 
 class TicketController {
+  create = async (request: Request, response: Response) => {
+    const body = request.validated?.body as CreateTicketBodyDTO;
+
+    const ticket = await ticketService.create(request.user!, body);
+
+    response.status(201).json(ticket);
+  };
+
   getMany = async (request: Request, response: Response) => {
     const query = request.validated?.query as GetManyTicketsQueryDTO;
 

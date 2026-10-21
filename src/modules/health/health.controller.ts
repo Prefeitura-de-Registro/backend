@@ -1,4 +1,3 @@
-
 import { Response } from 'express';
 import { prisma } from '../../shared/database/prisma.js';
 
