@@ -144,6 +144,7 @@ class TicketService {
       maxWait: 10000, 
       timeout: 30000,
     });
+  }
 
   async getMany(user: TokenPayload, query: GetManyTicketsQueryDTO) {
     if (user.tipoUsuario === 'municipe') {
