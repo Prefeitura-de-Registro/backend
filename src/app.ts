@@ -6,7 +6,13 @@ import { notFoundMiddleware } from './shared/middlewares/not-found.middleware.js
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE'
+}));
+
 app.use(express.json());
 app.use(routes);
 app.use(notFoundMiddleware);
